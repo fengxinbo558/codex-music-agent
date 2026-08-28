@@ -397,7 +397,7 @@ name = "app_test_support"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
+ "base64 0.23.0",
  "chrono",
  "codex-app-server-protocol",
  "codex-config",
@@ -1900,7 +1900,7 @@ name = "codex-agent-identity"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
+ "base64 0.23.0",
  "chrono",
  "codex-http-client",
  "codex-protocol",
@@ -1965,7 +1965,7 @@ dependencies = [
  "anyhow",
  "assert_matches",
  "async-channel",
- "base64 0.22.1",
+ "base64 0.23.0",
  "bytes",
  "chrono",
  "codex-client",
@@ -2000,7 +2000,7 @@ dependencies = [
  "anyhow",
  "app_test_support",
  "axum",
- "base64 0.22.1",
+ "base64 0.23.0",
  "chrono",
  "clap",
  "codex-agent-extension",
@@ -2209,7 +2209,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "axum",
- "base64 0.22.1",
+ "base64 0.23.0",
  "chrono",
  "clap",
  "codex-api",
@@ -2487,7 +2487,7 @@ dependencies = [
 name = "codex-cloud-config"
 version = "0.0.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.0",
  "chrono",
  "codex-agent-identity",
  "codex-backend-client",
@@ -2658,7 +2658,7 @@ name = "codex-config"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
+ "base64 0.23.0",
  "codex-execpolicy",
  "codex-features",
  "codex-file-system",
@@ -2755,7 +2755,7 @@ dependencies = [
  "assert_cmd",
  "assert_matches",
  "async-channel",
- "base64 0.22.1",
+ "base64 0.23.0",
  "bm25",
  "chrono",
  "clap",
@@ -3020,7 +3020,7 @@ dependencies = [
  "anyhow",
  "arc-swap",
  "axum",
- "base64 0.22.1",
+ "base64 0.23.0",
  "bytes",
  "clatter",
  "codex-api",
@@ -3076,7 +3076,7 @@ dependencies = [
 name = "codex-exec-server-protocol"
 version = "0.0.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.0",
  "codex-file-system",
  "codex-network-proxy",
  "codex-protocol",
@@ -3456,7 +3456,7 @@ dependencies = [
 name = "codex-image-generation-extension"
 version = "0.0.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.0",
  "codex-api",
  "codex-core",
  "codex-exec-server",
@@ -3546,7 +3546,7 @@ name = "codex-login"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
+ "base64 0.23.0",
  "chrono",
  "codex-agent-identity",
  "codex-config",
@@ -3836,7 +3836,7 @@ name = "codex-network-proxy"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
+ "base64 0.23.0",
  "chrono",
  "clap",
  "codex-utils-absolute-path",
@@ -4026,7 +4026,7 @@ dependencies = [
 name = "codex-response-debug-context"
 version = "0.0.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.0",
  "codex-api",
  "http 1.4.0",
  "pretty_assertions",
@@ -4056,7 +4056,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "axum",
- "base64 0.22.1",
+ "base64 0.23.0",
  "bytes",
  "codex-api",
  "codex-config",
@@ -4169,7 +4169,7 @@ version = "0.0.0"
 dependencies = [
  "age",
  "anyhow",
- "base64 0.22.1",
+ "base64 0.23.0",
  "codex-git-utils",
  "codex-keyring-store",
  "keyring",
@@ -4189,7 +4189,7 @@ name = "codex-shell-command"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
+ "base64 0.23.0",
  "codex-protocol",
  "codex-utils-absolute-path",
  "libc",
@@ -4408,7 +4408,7 @@ dependencies = [
  "arboard",
  "assert_matches",
  "axum",
- "base64 0.22.1",
+ "base64 0.23.0",
  "chrono",
  "clap",
  "codex-ansi-escape",
@@ -4549,7 +4549,7 @@ dependencies = [
 name = "codex-utils-audio"
 version = "0.0.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.0",
  "codex-protocol",
  "codex-utils-cache",
  "codex-utils-string",
@@ -4611,7 +4611,7 @@ dependencies = [
 name = "codex-utils-image"
 version = "0.0.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.0",
  "codex-utils-cache",
  "divan",
  "image",
@@ -4662,7 +4662,7 @@ dependencies = [
 name = "codex-utils-path-uri"
 version = "0.0.0"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.23.0",
  "codex-utils-absolute-path",
  "pretty_assertions",
  "schemars 0.8.22",
@@ -4822,7 +4822,7 @@ name = "codex-windows-sandbox"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
+ "base64 0.23.0",
  "chrono",
  "codex-otel",
  "codex-protocol",
@@ -5103,7 +5103,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "assert_cmd",
- "base64 0.22.1",
+ "base64 0.23.0",
  "codex-arg0",
  "codex-config",
  "codex-core",
@@ -9794,7 +9794,7 @@ version = "5.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51e219e79014df21a225b1860a479e2dcd7cbd9130f4defd4bd0e191ea31d67d"
 dependencies = [
- "base64 0.22.1",
+ "base64 0.21.7",
  "chrono",
  "getrandom 0.2.17",
  "http 1.4.0",
