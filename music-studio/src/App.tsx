@@ -47,6 +47,21 @@ import {
 import { localAudioStore } from "./services/localAudioStore";
 import { createEstimatedLyricCues } from "./services/lyricTiming";
 import {
+  createCreationSession,
+  transitionCreationSession,
+  updateCreationStageDraft,
+} from "./services/creationSession";
+import { creationSessionStore } from "./services/creationSessionStore";
+import {
+  createDirectionRecommendations,
+  directionToPlan,
+} from "./services/directionRecommendations";
+import {
+  createLyricVocalDraft,
+  toggleLineTechnique,
+  updateLyricLine,
+} from "./services/lyricDraft";
+import {
   activateWorkflowStep,
   completeWorkflow,
   completeWorkflowStep,
@@ -61,7 +76,9 @@ import type {
   AgentState,
   AppView,
   AudioVariant,
+  CreationSession,
   DialogKind,
+  DirectionCandidate,
   GenerationMode,
   GenerationPreferences,
   GenerationReferenceInput,
@@ -71,14 +88,19 @@ import type {
   MusicEngineStatus,
   MusicTrack,
   MusicWorkflow,
+  LyricVocalDraft,
   ProjectVersion,
   SpeechRecognitionLike,
+  VocalTechnique,
 } from "./types";
 import { LibraryView } from "./views/LibraryView";
 import { ModelsView } from "./views/ModelsView";
 import { ProjectsView } from "./views/ProjectsView";
 
 export default function App() {
+  const [projectId, setProjectId] = useState(() =>
+    readStored("music-workroom-project-id", "rain-before-it-stops"),
+  );
   const [view, setView] = useState<AppView>(
     () => readStored("codex-music-view", "projects") as AppView,
   );
@@ -94,6 +116,12 @@ export default function App() {
   const [workflow, setWorkflow] = useState<MusicWorkflow>(createIdleWorkflow);
   const [prompt, setPrompt] = useState("");
   const [plan, setPlan] = useState<AgentPlanResponse | null>(null);
+  const [creationSession, setCreationSession] =
+    useState<CreationSession | null>(null);
+  const [directions, setDirections] = useState<DirectionCandidate[]>([]);
+  const [selectedDirectionId, setSelectedDirectionId] =
+    useState("recommended");
+  const [lyricDraft, setLyricDraft] = useState<LyricVocalDraft | null>(null);
   const [tracks, setTracks] = useState<MusicTrack[]>(initialTracks);
   const [selectedClips, setSelectedClips] = useState<string[]>([]);
   const [operationScope, setOperationScope] = useState<string[]>([]);
@@ -254,6 +282,9 @@ export default function App() {
     localStorage.setItem("codex-music-view", view);
   }, [view]);
   useEffect(() => {
+    localStorage.setItem("music-workroom-project-id", projectId);
+  }, [projectId]);
+  useEffect(() => {
     localStorage.setItem("codex-music-title", projectTitle);
   }, [projectTitle]);
   useEffect(() => {
@@ -284,6 +315,45 @@ export default function App() {
       JSON.stringify(versionsForStorage(versions)),
     );
   }, [versions]);
+  useEffect(() => {
+    let active = true;
+    void creationSessionStore
+      .getLatest(projectId)
+      .then((restored) => {
+        if (!active || !restored) return;
+        setCreationSession(restored);
+        setPrompt(restored.idea);
+        const directionDraft = restored.stageDrafts.direction;
+        const restoredDirections = directionDraft?.directions;
+        const restoredPlan = directionDraft?.sourcePlan;
+        if (Array.isArray(restoredDirections)) {
+          setDirections(restoredDirections as DirectionCandidate[]);
+        }
+        if (restoredPlan && typeof restoredPlan === "object") {
+          setPlan(restoredPlan as AgentPlanResponse);
+        }
+        const lyricsVocalDraft = restored.stageDrafts["lyrics-vocal"]?.draft;
+        if (lyricsVocalDraft && typeof lyricsVocalDraft === "object") {
+          const nextDraft = lyricsVocalDraft as LyricVocalDraft;
+          setLyricDraft(nextDraft);
+          setLyrics(nextDraft.lines.map((line) => line.text));
+        }
+      })
+      .catch(() => {
+        // A fresh session can still be created; never pretend restoration worked.
+      });
+    return () => {
+      active = false;
+    };
+  }, [projectId]);
+  useEffect(() => {
+    if (!creationSession) return;
+    void creationSessionStore.save(creationSession).catch((error: unknown) =>
+      announce(
+        error instanceof Error ? error.message : "创作进度暂时没有保存。",
+      ),
+    );
+  }, [announce, creationSession]);
   useEffect(() => {
     let active = true;
     void localAudioStore
@@ -396,8 +466,121 @@ export default function App() {
     const cleanPrompt = prompt.trim();
     if (!cleanPrompt || agentState === "thinking" || agentState === "rendering")
       return;
-    const taskId = `task-${Date.now()}`;
-    const preferences = { ...generationPreferences };
+    if (!creationSession || creationSession.currentStage === "idea") {
+      const taskId = `direction-${Date.now()}`;
+      let nextSession =
+        creationSession ??
+        createCreationSession({
+          id: `session-${Date.now()}`,
+          projectId,
+        });
+      try {
+        nextSession = transitionCreationSession(nextSession, {
+          type: "SUBMIT_IDEA",
+          idea: cleanPrompt,
+        });
+        setCreationSession(nextSession);
+        setTasks((items) => [
+          {
+            id: taskId,
+            title: "制定创作方向",
+            status: "active",
+            time: "正在进行",
+            detail: cleanPrompt,
+          },
+          ...items,
+        ]);
+        setAgentState("thinking");
+        setWorkflow(startWorkflow(taskId));
+        setProgress(18);
+        setProgressLabel("音乐总监正在准备三套创作方向");
+        setAnnouncement("正在理解创意；此时不会调用音乐生成模型");
+        const sourcePlan = await planMusic({
+          projectId,
+          prompt: `${modePrompt(generationMode)}${cleanPrompt}`,
+          vocalDelivery: generationPreferences.vocalDelivery,
+          selection: selectedNames,
+          currentProject: { bpm, key: musicKey, selectedVersion },
+        });
+        const nextDirections = createDirectionRecommendations(
+          sourcePlan,
+          generationPreferences,
+        );
+        nextSession = transitionCreationSession(nextSession, {
+          type: "TASK_SUCCEEDED",
+          stage: "direction",
+          summary: "三套创作方向已准备",
+          payload: {
+            directions: nextDirections,
+            sourcePlan,
+          },
+        });
+        setCreationSession(nextSession);
+        setDirections(nextDirections);
+        setSelectedDirectionId("recommended");
+        setPlan(sourcePlan);
+        setWorkflow((current) =>
+          completeWorkflowStep(
+            current,
+            "director",
+            "推荐、稳妥、大胆三套方向已交给用户确认",
+          ),
+        );
+        setAgentState("idle");
+        setProgress(100);
+        setProgressLabel("等待你确认创作方向");
+        setTasks((items) =>
+          items.map((task) =>
+            task.id === taskId
+              ? {
+                  ...task,
+                  status: "complete",
+                  time: "刚刚",
+                  detail: "已生成三套方向，等待用户选择",
+                }
+              : task,
+          ),
+        );
+        announce("三套创作方向已经准备好，请先选一套再继续");
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "创作方向没有准备完成。";
+        try {
+          nextSession = transitionCreationSession(nextSession, {
+            type: "TASK_FAILED",
+            stage: "direction",
+            error: message,
+          });
+          setCreationSession(nextSession);
+        } catch {
+          // Keep the last valid state when the failure happened before submission.
+        }
+        setAgentState("error");
+        setWorkflow((current) => failActiveWorkflow(current, message));
+        announce(message);
+      }
+      return;
+    }
+    if (
+      creationSession.currentStage !== "sample" &&
+      creationSession.currentStage !== "full-song"
+    ) {
+      announce("请先完成当前确认步骤；确认前不会启动音乐模型。");
+      return;
+    }
+
+    const generationStage = creationSession.currentStage;
+    const isSampleGeneration = generationStage === "sample";
+    const taskId = `${isSampleGeneration ? "sample" : "full"}-${Date.now()}`;
+    const preferences: GenerationPreferences = {
+      ...generationPreferences,
+      duration: isSampleGeneration
+        ? 30
+        : generationPreferences.duration === 30
+          ? 60
+          : generationPreferences.duration,
+      variantCount: 1,
+    };
     const reference = { ...referenceSettings };
     const referenceAsset = visibleAssets.find(
       (asset) => asset.id === reference.assetId,
@@ -405,7 +588,7 @@ export default function App() {
     setTasks((items) => [
       {
         id: taskId,
-        title: modeTaskLabel(generationMode),
+        title: isSampleGeneration ? "制作核心小样" : "生成完整歌曲",
         status: "active",
         time: "正在进行",
         detail: `${cleanPrompt} · ${summarizePreferences(preferences)}${
@@ -417,10 +600,27 @@ export default function App() {
       ...items,
     ]);
     setAgentState("thinking");
-    setWorkflow(startWorkflow(taskId));
+    setWorkflow((current) => {
+      let next = completeWorkflowStep(
+        current,
+        "arrangement",
+        plan
+          ? `${plan.brief.structure.join(" → ")} · ${plan.brief.instruments.join("、")}`
+          : "已批准的编曲方案",
+      );
+      return activateWorkflowStep(
+        next,
+        "model",
+        isSampleGeneration ? "正在提交 30 秒核心小样" : "正在提交完整歌曲",
+      );
+    });
     setProgress(6);
     setProgressLabel("读取当前工程与选中片段");
-    setAnnouncement("音乐制作助理正在理解你的想法");
+    setAnnouncement(
+      isSampleGeneration
+        ? "正在按已确认方案制作核心小样"
+        : "正在按已确认小样生成完整歌曲",
+    );
     setOperationScope(selectedNames);
     try {
       let generationReference: GenerationReferenceInput | undefined;
@@ -442,27 +642,13 @@ export default function App() {
           strength: reference.strength,
         };
       }
-      const referenceDirection = generationReference
-        ? generationReference.mode === "style"
-          ? `[参考音频：${generationReference.name}；只借鉴风格、氛围、配器和声音质感，不复制具体旋律] `
-          : `[翻唱/重编源音频：${generationReference.name}；保留节奏与旋律骨架，按文字要求重做配器与演唱] `
-        : "";
-      const nextPlan = await planMusic({
-        projectId: "rain-before-it-stops",
-        prompt: `${modePrompt(generationMode)}${referenceDirection}${cleanPrompt}`,
-        vocalDelivery: preferences.vocalDelivery,
-        selection: selectedNames,
-        currentProject: { bpm, key: musicKey, selectedVersion },
-      });
-      const hasCurrentLyrics = lyrics.some((line) => line.trim());
-      const shouldUseCurrentLyrics =
-        preferences.lyricsMode === "current" && hasCurrentLyrics;
+      if (!plan) throw new Error("已确认的创作方向没有恢复，请返回方向步骤。 ");
+      const nextPlan = plan;
+      const approvedLyrics = lyricDraft?.lines.map((line) => line.text) ?? lyrics;
       const generationLyrics =
         preferences.vocalStyle === "instrumental"
           ? []
-          : shouldUseCurrentLyrics
-            ? lyrics
-            : nextPlan.brief.lyrics;
+          : approvedLyrics;
       const displayedLyrics =
         preferences.vocalStyle === "instrumental" ? lyrics : generationLyrics;
       const renderBrief = {
@@ -508,7 +694,9 @@ export default function App() {
       setLyrics(displayedLyrics);
       setAgentState("rendering");
       setProgress(27);
-      setProgressLabel("制作方案已确认，准备生成");
+      setProgressLabel(
+        isSampleGeneration ? "已锁定方案，准备核心小样" : "小样已通过，准备完整歌曲",
+      );
       const generated = await automaticMusicProvider.generate(
         renderBrief,
         preferences,
@@ -565,7 +753,7 @@ export default function App() {
             durationSeconds: sourceAnalysis.duration || result.duration,
             waveform: sourceAnalysis.waveform,
             origin: `${renderBrief.title} · 模型原声`,
-            projectId: "rain-before-it-stops",
+            projectId,
             versionId,
             bpm: renderBrief.bpm,
             musicKey: renderBrief.key,
@@ -605,7 +793,7 @@ export default function App() {
               origin: `${renderBrief.title} · ${
                 TONE_PROFILES[preferences.toneProfile].label
               }`,
-              projectId: "rain-before-it-stops",
+              projectId,
               versionId,
               bpm: renderBrief.bpm,
               musicKey: renderBrief.key,
@@ -700,9 +888,9 @@ export default function App() {
           index,
         ) => ({
           id: versionId,
-          label: `版本 ${String(versions.length + index + 1).padStart(2, "0")}`,
+          label: `${isSampleGeneration ? "核心小样" : "完整版本"} ${String(versions.length + index + 1).padStart(2, "0")}`,
           createdAt: "刚刚",
-          note: `Agent：${renderBrief.change[0] ?? "生成新编曲"}${
+          note: `${isSampleGeneration ? "30 秒核心小样" : "完整歌曲"} · ${renderBrief.change[0] ?? "生成新编曲"}${
             generated.length > 1 ? ` · 方案 ${index + 1}` : ""
           } · ${
             masteringStatus === "complete"
@@ -710,6 +898,7 @@ export default function App() {
               : "模型原声"
           }`,
           source: "generated",
+          generationKind: isSampleGeneration ? "sample" : "full",
           provider: result.provider,
           bpm: renderBrief.bpm,
           musicKey: renderBrief.key,
@@ -795,6 +984,24 @@ export default function App() {
           ),
         ),
       );
+      setCreationSession((current) => {
+        if (!current) return current;
+        try {
+          return transitionCreationSession(current, {
+            type: "TASK_SUCCEEDED",
+            stage: isSampleGeneration ? "sample" : "full-song",
+            summary: isSampleGeneration
+              ? `${Math.round(firstStored.asset.durationSeconds)} 秒核心小样已保存`
+              : `完整歌曲 ${newVersions[0]?.label ?? "新版本"} 已保存`,
+            payload: {
+              versionIds: newVersions.map((version) => version.id),
+              audioAssetIds: storedResults.map((stored) => stored.asset.id),
+            },
+          });
+        } catch {
+          return current;
+        }
+      });
       setAgentState("complete");
       setProgress(100);
       setProgressLabel(
@@ -815,7 +1022,9 @@ export default function App() {
         ),
       );
       announce(
-        firstResult.warning
+        isSampleGeneration
+          ? "核心小样已经生成，请先试听并确认，再生成整首"
+          : firstResult.warning
           ? "已生成链路试听；启动 ACE-Step 后会自动生成真实 AI 音乐"
           : masteringWarning
             ? "歌曲已经生成并保留原声；柔化没有完成，可以直接重试"
@@ -828,12 +1037,23 @@ export default function App() {
                 : `${TONE_PROFILES[preferences.toneProfile].label}版本已生成，可以播放和导出`,
       );
     } catch (error) {
+      const failureMessage =
+        error instanceof Error ? error.message : "生成没有完成";
+      setCreationSession((current) => {
+        if (!current) return current;
+        try {
+          return transitionCreationSession(current, {
+            type: "TASK_FAILED",
+            stage: isSampleGeneration ? "sample" : "full-song",
+            error: failureMessage,
+          });
+        } catch {
+          return current;
+        }
+      });
       setAgentState("error");
       setWorkflow((current) =>
-        failActiveWorkflow(
-          current,
-          error instanceof Error ? error.message : "生成没有完成",
-        ),
+        failActiveWorkflow(current, failureMessage),
       );
       setProgressLabel("生成没有完成");
       setTasks((items) =>
@@ -843,7 +1063,343 @@ export default function App() {
             : task,
         ),
       );
-      announce(error instanceof Error ? error.message : "生成没有完成，请重试");
+      announce(failureMessage);
+    }
+  };
+
+  const changeDirection = (direction: DirectionCandidate) => {
+    const nextDirections = directions.map((item) =>
+      item.id === direction.id ? direction : item,
+    );
+    setDirections(nextDirections);
+    setSelectedDirectionId(direction.id);
+    setCreationSession((session) =>
+      session
+        ? updateCreationStageDraft(session, "direction", {
+            directions: nextDirections,
+            sourcePlan: plan,
+          })
+        : session,
+    );
+  };
+
+  const refreshDirections = () => {
+    if (!plan) return;
+    const refreshNumber =
+      creationSession?.stages.direction.revision ?? directions.length;
+    const refreshedPlan: AgentPlanResponse = {
+      ...plan,
+      brief: {
+        ...plan.brief,
+        bpm: Math.max(68, Math.min(168, plan.brief.bpm + 3 + refreshNumber)),
+        instruments: [
+          ...new Set([...plan.brief.instruments, "新节奏质感"]),
+        ],
+      },
+    };
+    const nextDirections = createDirectionRecommendations(
+      refreshedPlan,
+      generationPreferences,
+    ).map((direction, index) => ({
+      ...direction,
+      id: `${direction.kind}-${Date.now()}-${index}`,
+    }));
+    setDirections(nextDirections);
+    setSelectedDirectionId(nextDirections[0].id);
+    setCreationSession((session) =>
+      session
+        ? updateCreationStageDraft(session, "direction", {
+            directions: nextDirections,
+            sourcePlan: refreshedPlan,
+          })
+        : session,
+    );
+    setPlan(refreshedPlan);
+    announce("音乐总监换了一组方向，仍然不会启动音乐模型");
+  };
+
+  const approveDirection = () => {
+    if (!creationSession || !plan) return;
+    const direction = directions.find(
+      (item) => item.id === selectedDirectionId,
+    );
+    if (!direction) return;
+    try {
+      let nextSession = transitionCreationSession(creationSession, {
+        type: "APPROVE_DIRECTION",
+        summary: `${direction.label} · ${direction.brief.genre} · ${direction.brief.bpm} BPM`,
+        payload: { direction },
+      });
+      const approvedPlan = directionToPlan(direction, plan);
+      const hasCurrentLyrics = lyrics.some((line) => line.trim());
+      const useCurrentLyrics =
+        generationPreferences.lyricsMode === "current" && hasCurrentLyrics;
+      const draft = createLyricVocalDraft({
+        lyrics:
+          generationPreferences.vocalStyle === "instrumental"
+            ? []
+            : useCurrentLyrics
+              ? lyrics
+              : direction.brief.lyrics,
+        source: useCurrentLyrics ? "user" : "ai",
+        bpm: direction.brief.bpm,
+        targetSeconds: generationPreferences.duration,
+        vocalDelivery: generationPreferences.vocalDelivery,
+      });
+      nextSession = transitionCreationSession(nextSession, {
+        type: "TASK_SUCCEEDED",
+        stage: "lyrics-vocal",
+        summary: `${draft.lines.length} 句歌词与逐句唱法已准备`,
+        payload: { draft },
+      });
+      setCreationSession(nextSession);
+      setPlan(approvedPlan);
+      setLyricDraft(draft);
+      setLyrics(draft.lines.map((line) => line.text));
+      setBpm(direction.brief.bpm);
+      setMusicKey(direction.brief.key);
+      setProjectTitle(direction.brief.title);
+      setWorkflow((current) => {
+        let next = completeWorkflowStep(
+          current,
+          "director",
+          `${direction.label}已由用户确认`,
+        );
+        next = completeWorkflowStep(
+          next,
+          "lyrics",
+          `${draft.lines.length} 句歌词等待用户确认`,
+        );
+        return activateWorkflowStep(next, "vocal", "逐句唱法等待用户确认");
+      });
+      announce("创作方向已锁定；请检查每句歌词和唱法");
+    } catch (error) {
+      announce(error instanceof Error ? error.message : "方向确认没有完成。");
+    }
+  };
+
+  const changeLyricLine = (lineId: string, text: string) => {
+    setLyricDraft((current) => {
+      if (!current) return current;
+      const nextDraft = updateLyricLine(
+        current,
+        lineId,
+        text,
+        bpm,
+        generationPreferences.duration,
+      );
+      setLyrics(nextDraft.lines.map((line) => line.text));
+      setCreationSession((session) =>
+        session
+          ? updateCreationStageDraft(session, "lyrics-vocal", {
+              draft: nextDraft,
+            })
+          : session,
+      );
+      return nextDraft;
+    });
+  };
+
+  const toggleVocalTechnique = (
+    lineId: string,
+    technique: VocalTechnique,
+  ) => {
+    setLyricDraft((current) => {
+      if (!current) return current;
+      const nextDraft = toggleLineTechnique(current, lineId, technique);
+      setCreationSession((session) =>
+        session
+          ? updateCreationStageDraft(session, "lyrics-vocal", {
+              draft: nextDraft,
+            })
+          : session,
+      );
+      return nextDraft;
+    });
+  };
+
+  const approveLyrics = () => {
+    if (!creationSession || !lyricDraft) return;
+    try {
+      const nextSession = transitionCreationSession(creationSession, {
+        type: "APPROVE_LYRICS",
+        summary: `${lyricDraft.lines.length} 句歌词 · ${lyricDraft.vocalCues.length} 项演唱设计`,
+        payload: { draft: lyricDraft },
+      });
+      setCreationSession(nextSession);
+      setLyrics(lyricDraft.lines.map((line) => line.text));
+      setWorkflow((current) =>
+        completeWorkflowStep(
+          completeWorkflowStep(
+            current,
+            "lyrics",
+            `${lyricDraft.lines.length} 句歌词已由用户确认`,
+          ),
+          "vocal",
+          `${lyricDraft.vocalCues.length} 项逐句唱法已由用户确认`,
+        ),
+      );
+      setProgressLabel("歌词与唱法已锁定，等待制作核心小样");
+      announce("歌词与唱法已确认；下一步只做 20–30 秒核心小样");
+    } catch (error) {
+      announce(error instanceof Error ? error.message : "歌词确认没有完成。");
+    }
+  };
+
+  const startSample = () => {
+    if (!creationSession || creationSession.currentStage !== "sample") return;
+    void handleSubmit();
+  };
+
+  const approveSample = () => {
+    if (!creationSession) return;
+    const sampleVersion = versions.find(
+      (version) =>
+        version.id === selectedVersion && version.generationKind === "sample",
+    );
+    if (!sampleVersion) {
+      announce("请先生成并试听核心小样。");
+      return;
+    }
+    try {
+      const nextSession = transitionCreationSession(creationSession, {
+        type: "APPROVE_SAMPLE",
+        summary: `${sampleVersion.label} 已通过试听`,
+        payload: {
+          versionId: sampleVersion.id,
+          audioAssetId: sampleVersion.audioAssetId ?? "",
+        },
+      });
+      setCreationSession(nextSession);
+      announce("核心小样已锁定；整首会沿用同一套方向、歌词和唱法");
+    } catch (error) {
+      announce(error instanceof Error ? error.message : "小样确认没有完成。");
+    }
+  };
+
+  const startFullSong = () => {
+    if (!creationSession || creationSession.currentStage !== "full-song")
+      return;
+    void handleSubmit();
+  };
+
+  const reviseSample = (message: string) => {
+    if (!creationSession || creationSession.currentStage !== "sample") return;
+    try {
+      const nextSession = transitionCreationSession(creationSession, {
+        type: "REQUEST_REVISION",
+        stage: "sample",
+        message,
+      });
+      setCreationSession(nextSession);
+      setPlan((current) =>
+        current
+          ? {
+              ...current,
+              brief: {
+                ...current.brief,
+                vocalMode: `${current.brief.vocalMode}；本次小样调整：${message}`,
+                change: [...current.brief.change, message],
+              },
+            }
+          : current,
+      );
+      setAgentState("idle");
+      announce(`已记录小样反馈：${message}。重新生成只会重做小样。`);
+    } catch (error) {
+      announce(error instanceof Error ? error.message : "小样反馈没有记录。");
+    }
+  };
+
+  const backToLyrics = () => {
+    if (!creationSession || !lyricDraft) return;
+    try {
+      let nextSession = transitionCreationSession(creationSession, {
+        type: "REQUEST_REVISION",
+        stage: "lyrics-vocal",
+        message: "从小样阶段返回修改歌词或唱法",
+      });
+      nextSession = transitionCreationSession(nextSession, {
+        type: "TASK_SUCCEEDED",
+        stage: "lyrics-vocal",
+        summary: `${lyricDraft.lines.length} 句歌词与逐句唱法已重新打开`,
+        payload: { draft: lyricDraft },
+      });
+      setCreationSession(nextSession);
+      setAgentState("idle");
+      announce("歌词与唱法已经重新打开；修改后需再次确认");
+    } catch (error) {
+      announce(error instanceof Error ? error.message : "暂时不能返回歌词步骤。");
+    }
+  };
+
+  const confirmDelivery = () => {
+    if (!creationSession) return;
+    const deliveredVersion = versions.find(
+      (version) =>
+        version.id === selectedVersion && version.generationKind === "full",
+    );
+    if (!deliveredVersion) {
+      announce("当前选择的不是完整歌曲版本。");
+      return;
+    }
+    try {
+      let nextSession = transitionCreationSession(creationSession, {
+        type: "TASK_SUCCEEDED",
+        stage: "editing",
+        summary: "完整混音、歌词时间轴与本机保存已通过检查",
+        payload: { versionId: deliveredVersion.id },
+      });
+      nextSession = transitionCreationSession(nextSession, {
+        type: "APPROVE_DELIVERY",
+        summary: `${deliveredVersion.label} 已确认完成`,
+        payload: {
+          versionId: deliveredVersion.id,
+          audioAssetId: deliveredVersion.audioAssetId ?? "",
+        },
+      });
+      setCreationSession(nextSession);
+      announce("完整歌曲已确认交付；WAV 和制作记录都保存在本机");
+    } catch (error) {
+      announce(error instanceof Error ? error.message : "交付确认没有完成。");
+    }
+  };
+
+  const returnToIdea = () => {
+    if (!creationSession) return;
+    try {
+      const nextSession = transitionCreationSession(creationSession, {
+        type: "REQUEST_REVISION",
+        stage: "idea",
+        message: "返回修改原始创意",
+      });
+      setCreationSession(nextSession);
+      setPrompt(nextSession.idea);
+      setAgentState("idle");
+      announce("可以修改原始创意，提交后会重新推荐方向");
+    } catch (error) {
+      announce(error instanceof Error ? error.message : "暂时不能返回创意步骤。");
+    }
+  };
+
+  const returnToDirection = () => {
+    if (!creationSession) return;
+    try {
+      let nextSession = transitionCreationSession(creationSession, {
+        type: "REQUEST_REVISION",
+        stage: "direction",
+        message: "从歌词阶段返回修改创作方向",
+      });
+      nextSession = transitionCreationSession(nextSession, {
+        type: "TASK_SUCCEEDED",
+        stage: "direction",
+        summary: "创作方向已重新打开",
+        payload: { directions, sourcePlan: plan },
+      });
+      setCreationSession(nextSession);
+      announce("创作方向已经重新打开；后续歌词需要再次确认");
+    } catch (error) {
+      announce(error instanceof Error ? error.message : "暂时不能返回方向步骤。");
     }
   };
 
@@ -980,7 +1536,7 @@ export default function App() {
         durationSeconds: analysis.duration || version.duration || 0,
         waveform: analysis.waveform,
         origin: `${projectTitle} · ${version.label}温暖重制`,
-        projectId: "rain-before-it-stops",
+        projectId,
         versionId: nextVersionId,
         bpm: version.bpm,
         musicKey: version.musicKey,
@@ -1209,6 +1765,7 @@ export default function App() {
   };
 
   const createProject = (title: string, source: string) => {
+    const nextProjectId = `project-${Date.now()}`;
     const firstVersion: ProjectVersion = {
       id: `draft-${Date.now()}`,
       label: "版本 01",
@@ -1220,6 +1777,7 @@ export default function App() {
       musicKey: "C major",
     };
     setProjectTitle(title);
+    setProjectId(nextProjectId);
     setBpm(92);
     setMusicKey("C major");
     setLyrics([""]);
@@ -1250,6 +1808,10 @@ export default function App() {
           : "保留人声旋律，为它制作完整伴奏",
     );
     setPlan(null);
+    setCreationSession(null);
+    setDirections([]);
+    setSelectedDirectionId("recommended");
+    setLyricDraft(null);
     setAgentState("idle");
     setWorkflow(createIdleWorkflow());
     setSelectedClips([]);
@@ -1544,6 +2106,11 @@ export default function App() {
               selectedVersion={selectedVersion}
               audioVariant={audioVariant}
               remasteringVersionId={remasteringVersionId}
+              creationSession={creationSession}
+              directions={directions}
+              selectedDirectionId={selectedDirectionId}
+              lyricDraft={lyricDraft}
+              isPlaying={isPlaying}
               onPromptChange={setPrompt}
               onPreferencesChange={setGenerationPreferences}
               onReferenceSettingsChange={setReferenceSettings}
@@ -1557,6 +2124,22 @@ export default function App() {
               onSelectAudioVariant={selectAudioVariant}
               onRemasterVersion={remasterVersion}
               onCompare={() => setDialog("compare")}
+              onSelectDirection={setSelectedDirectionId}
+              onChangeDirection={changeDirection}
+              onApproveDirection={approveDirection}
+              onRefreshDirections={refreshDirections}
+              onReturnToIdea={returnToIdea}
+              onChangeLyricLine={changeLyricLine}
+              onToggleTechnique={toggleVocalTechnique}
+              onApproveLyrics={approveLyrics}
+              onReturnToDirection={returnToDirection}
+              onTogglePlay={handleTogglePlay}
+              onStartSample={startSample}
+              onApproveSample={approveSample}
+              onStartFullSong={startFullSong}
+              onReviseSample={reviseSample}
+              onBackToLyrics={backToLyrics}
+              onConfirmDelivery={confirmDelivery}
             />
           </>
         ) : null}

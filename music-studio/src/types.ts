@@ -92,6 +92,100 @@ export type MusicWorkflow = {
   steps: MusicWorkflowStep[];
 };
 
+export type CreationStage =
+  | "idea"
+  | "direction"
+  | "lyrics-vocal"
+  | "sample"
+  | "full-song"
+  | "editing"
+  | "delivered";
+
+export type StageStatus =
+  | "DRAFT"
+  | "AWAITING_CONFIRMATION"
+  | "APPROVED"
+  | "REVISING"
+  | "FAILED";
+
+export type CreationStageState = {
+  stage: CreationStage;
+  status: StageStatus;
+  revision: number;
+  summary?: string;
+  error?: string;
+};
+
+export type ApprovedAssetSnapshot = {
+  id: string;
+  stage: CreationStage;
+  revision: number;
+  approvedAt: string;
+  summary: string;
+  payload: Record<string, unknown>;
+};
+
+export type RevisionFeedback = {
+  id: string;
+  stage: CreationStage;
+  createdAt: string;
+  message: string;
+};
+
+export type CreationSession = {
+  id: string;
+  projectId: string;
+  currentStage: CreationStage;
+  idea: string;
+  createdAt: string;
+  updatedAt: string;
+  stages: Record<CreationStage, CreationStageState>;
+  stageDrafts: Partial<Record<CreationStage, Record<string, unknown>>>;
+  approvedSnapshots: ApprovedAssetSnapshot[];
+  revisionFeedback: RevisionFeedback[];
+};
+
+export type CreationSessionEvent =
+  | { type: "SUBMIT_IDEA"; idea: string; at?: string }
+  | {
+      type: "TASK_SUCCEEDED";
+      stage: CreationStage;
+      summary: string;
+      payload?: Record<string, unknown>;
+      at?: string;
+    }
+  | { type: "TASK_FAILED"; stage: CreationStage; error: string; at?: string }
+  | {
+      type: "APPROVE_DIRECTION";
+      summary: string;
+      payload: Record<string, unknown>;
+      at?: string;
+    }
+  | {
+      type: "APPROVE_LYRICS";
+      summary: string;
+      payload: Record<string, unknown>;
+      at?: string;
+    }
+  | {
+      type: "APPROVE_SAMPLE";
+      summary: string;
+      payload: Record<string, unknown>;
+      at?: string;
+    }
+  | {
+      type: "REQUEST_REVISION";
+      stage: CreationStage;
+      message: string;
+      at?: string;
+    }
+  | {
+      type: "APPROVE_DELIVERY";
+      summary: string;
+      payload: Record<string, unknown>;
+      at?: string;
+    };
+
 export type DialogKind =
   | "new-project"
   | "export"
@@ -135,6 +229,7 @@ export type ProjectVersion = {
   createdAt: string;
   note: string;
   source: "demo" | "generated";
+  generationKind?: "sample" | "full" | "edit";
   provider?: string;
   bpm?: number;
   musicKey?: string;
@@ -232,6 +327,71 @@ export type MusicBrief = {
   change: string[];
   provider: string;
   costLabel: string;
+};
+
+export type DirectionCandidateKind = "recommended" | "safe" | "bold";
+
+export type DirectionCandidate = {
+  id: string;
+  kind: DirectionCandidateKind;
+  label: string;
+  reason: string;
+  durationSeconds: number;
+  voiceTexture: string;
+  brief: MusicBrief;
+};
+
+export type VocalTechnique =
+  | "angry"
+  | "cry"
+  | "shout"
+  | "restrained"
+  | "gentle"
+  | "cold"
+  | "explosive"
+  | "breathy"
+  | "raspy"
+  | "gritty"
+  | "clear"
+  | "thick"
+  | "intimate"
+  | "airy"
+  | "vibrato"
+  | "run"
+  | "slide"
+  | "sustain"
+  | "pause"
+  | "spoken"
+  | "diction";
+
+export type VocalPerformanceCue = {
+  id: string;
+  lyricLineId: string;
+  characterStart: number;
+  characterEnd: number;
+  technique: VocalTechnique;
+  intensity: 1 | 2 | 3;
+  pitchSemitones?: number;
+  timingOffsetMs?: number;
+  durationDeltaMs?: number;
+  clarity?: "natural" | "clear" | "emphasized";
+  source: "recommended" | "user";
+  reason?: string;
+};
+
+export type LyricDraftLine = {
+  id: string;
+  section: string;
+  text: string;
+  source: "user" | "ai";
+  warnings: string[];
+};
+
+export type LyricVocalDraft = {
+  id: string;
+  lines: LyricDraftLine[];
+  vocalCues: VocalPerformanceCue[];
+  estimatedSeconds: number;
 };
 
 export type AgentPlanResponse = {

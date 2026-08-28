@@ -4,6 +4,8 @@ import type {
   AgentPlanResponse,
   AgentState,
   AudioVariant,
+  CreationSession,
+  DirectionCandidate,
   GenerationMode,
   GenerationPreferences,
   GenerationReferenceSettings,
@@ -11,11 +13,18 @@ import type {
   MusicEngineStatus,
   MusicWorkflow,
   ProjectVersion,
+  LyricVocalDraft,
+  VocalTechnique,
 } from "../types";
 import { AgentWorkflow } from "./AgentWorkflow";
+import { DirectionConfirmation } from "./DirectionConfirmation";
+import { DeliveryReview } from "./DeliveryReview";
 import { GenerationResultActions } from "./GenerationResultActions";
 import { GenerationSettings } from "./GenerationSettings";
+import { LyricsVocalConfirmation } from "./LyricsVocalConfirmation";
+import { ProductionHistory } from "./ProductionHistory";
 import { ReferenceAudioControls } from "./ReferenceAudioControls";
+import { SampleReview } from "./SampleReview";
 
 type AgentPanelProps = {
   state: AgentState;
@@ -39,6 +48,11 @@ type AgentPanelProps = {
   selectedVersion: string;
   audioVariant: AudioVariant;
   remasteringVersionId: string | null;
+  creationSession: CreationSession | null;
+  directions: DirectionCandidate[];
+  selectedDirectionId: string;
+  lyricDraft: LyricVocalDraft | null;
+  isPlaying: boolean;
   onPromptChange: (value: string) => void;
   onPreferencesChange: (preferences: GenerationPreferences) => void;
   onReferenceSettingsChange: (settings: GenerationReferenceSettings) => void;
@@ -52,6 +66,22 @@ type AgentPanelProps = {
   onSelectAudioVariant: (variant: AudioVariant) => void;
   onRemasterVersion: (versionId: string) => void;
   onCompare: () => void;
+  onSelectDirection: (id: string) => void;
+  onChangeDirection: (direction: DirectionCandidate) => void;
+  onApproveDirection: () => void;
+  onRefreshDirections: () => void;
+  onReturnToIdea: () => void;
+  onChangeLyricLine: (lineId: string, text: string) => void;
+  onToggleTechnique: (lineId: string, technique: VocalTechnique) => void;
+  onApproveLyrics: () => void;
+  onReturnToDirection: () => void;
+  onTogglePlay: () => void;
+  onStartSample: () => void;
+  onApproveSample: () => void;
+  onStartFullSong: () => void;
+  onReviseSample: (message: string) => void;
+  onBackToLyrics: () => void;
+  onConfirmDelivery: () => void;
 };
 
 const suggestions = [
@@ -82,6 +112,11 @@ export function AgentPanel({
   selectedVersion,
   audioVariant,
   remasteringVersionId,
+  creationSession,
+  directions,
+  selectedDirectionId,
+  lyricDraft,
+  isPlaying,
   onPromptChange,
   onPreferencesChange,
   onReferenceSettingsChange,
@@ -95,6 +130,22 @@ export function AgentPanel({
   onSelectAudioVariant,
   onRemasterVersion,
   onCompare,
+  onSelectDirection,
+  onChangeDirection,
+  onApproveDirection,
+  onRefreshDirections,
+  onReturnToIdea,
+  onChangeLyricLine,
+  onToggleTechnique,
+  onApproveLyrics,
+  onReturnToDirection,
+  onTogglePlay,
+  onStartSample,
+  onApproveSample,
+  onStartFullSong,
+  onReviseSample,
+  onBackToLyrics,
+  onConfirmDelivery,
 }: AgentPanelProps) {
   const isBusy = state === "thinking" || state === "rendering";
   const isModelPreparing =
@@ -146,7 +197,61 @@ export function AgentPanel({
       </div>
 
       <div className="agent-scroll">
-        <AgentWorkflow workflow={workflow} />
+        {creationSession?.currentStage === "direction" &&
+        creationSession.stages.direction.status ===
+          "AWAITING_CONFIRMATION" ? (
+          <DirectionConfirmation
+            directions={directions}
+            selectedId={selectedDirectionId}
+            onSelect={onSelectDirection}
+            onChange={onChangeDirection}
+            onApprove={onApproveDirection}
+            onRefresh={onRefreshDirections}
+            onBack={onReturnToIdea}
+          />
+        ) : creationSession?.currentStage === "lyrics-vocal" &&
+          creationSession.stages["lyrics-vocal"].status ===
+            "AWAITING_CONFIRMATION" &&
+          lyricDraft ? (
+          <LyricsVocalConfirmation
+            draft={lyricDraft}
+            targetSeconds={preferences.duration}
+            onChangeLine={onChangeLyricLine}
+            onToggleTechnique={onToggleTechnique}
+            onApprove={onApproveLyrics}
+            onBack={onReturnToDirection}
+          />
+        ) : creationSession &&
+          (creationSession.currentStage === "sample" ||
+            creationSession.currentStage === "full-song") ? (
+          <SampleReview
+            session={creationSession}
+            isBusy={isBusy}
+            currentVersion={currentVersion}
+            fullDuration={preferences.duration === 30 ? 60 : preferences.duration}
+            isPlaying={isPlaying}
+            onTogglePlay={onTogglePlay}
+            onStartSample={onStartSample}
+            onApproveSample={onApproveSample}
+            onStartFullSong={onStartFullSong}
+            onReviseSample={onReviseSample}
+            onBackToLyrics={onBackToLyrics}
+          />
+        ) : creationSession &&
+          (creationSession.currentStage === "editing" ||
+            creationSession.currentStage === "delivered") ? (
+          <DeliveryReview
+            session={creationSession}
+            currentVersion={currentVersion}
+            isPlaying={isPlaying}
+            onTogglePlay={onTogglePlay}
+            onExport={onExport}
+            onConfirm={onConfirmDelivery}
+          />
+        ) : (
+          <AgentWorkflow workflow={workflow} />
+        )}
+        {creationSession ? <ProductionHistory session={creationSession} /> : null}
         {isBusy ? (
           <div className="workflow-live-status" aria-live="polite">
             <strong>{progressLabel}</strong>
@@ -163,7 +268,7 @@ export function AgentPanel({
             <output>{progress}%</output>
           </div>
         ) : null}
-        {!isBusy ? (
+        {!isBusy && !creationSession ? (
           <>
             {plan ? <PlanSummary plan={plan} /> : null}
             <GenerationResultActions
@@ -188,6 +293,7 @@ export function AgentPanel({
         ) : null}
       </div>
 
+      {!creationSession || creationSession.currentStage === "idea" ? (
       <form className="agent-composer" onSubmit={submit}>
         <label htmlFor="music-prompt">你想做一首什么歌？</label>
         <textarea
@@ -271,6 +377,13 @@ export function AgentPanel({
           </button>
         </div>
       </form>
+      ) : (
+        <div className="agent-session-footer">
+          <span>当前创意</span>
+          <p>{creationSession.idea}</p>
+          <small>每一步确认后才会进入下一步，音乐模型不会越级启动。</small>
+        </div>
+      )}
     </aside>
   );
 }
