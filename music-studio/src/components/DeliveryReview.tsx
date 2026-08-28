@@ -6,6 +6,7 @@ type DeliveryReviewProps = {
   isPlaying: boolean;
   onTogglePlay: () => void;
   onExport: () => void;
+  onStartStems: () => void;
   onConfirm: () => void;
 };
 
@@ -15,9 +16,11 @@ export function DeliveryReview({
   isPlaying,
   onTogglePlay,
   onExport,
+  onStartStems,
   onConfirm,
 }: DeliveryReviewProps) {
   const delivered = session.stages.delivered.status === "APPROVED";
+  const stemStatus = currentVersion?.stems?.status;
   return (
     <section className="confirmation-stage delivery-review" aria-labelledby="delivery-title">
       <header className="confirmation-heading">
@@ -50,14 +53,27 @@ export function DeliveryReview({
           <dd>方向、歌词、唱法和小样确认记录已锁定</dd>
         </div>
         <div>
-          <dt>○</dt>
-          <dd>真实人声与乐器分轨尚未生成，因此暂不显示假音轨</dd>
+          <dt>{stemStatus === "ready" ? "✓" : stemStatus === "failed" ? "!" : "○"}</dt>
+          <dd>
+            {stemStatus === "ready"
+              ? "人声、鼓、贝斯和其他乐器四条真实分轨已通过检查"
+              : stemStatus === "running"
+                ? "正在本机分离真实人声与乐器；完整混音可以先试听"
+                : stemStatus === "failed"
+                  ? `完整混音已保留；分轨未完成：${currentVersion?.stems?.error ?? "可以稍后重试"}`
+                  : "真实人声与乐器分轨尚未生成，因此暂不显示假音轨"}
+          </dd>
         </div>
       </dl>
       <div className="delivery-actions">
         <button type="button" className="quiet-button" onClick={onExport}>
           导出 WAV
         </button>
+        {stemStatus !== "ready" && stemStatus !== "running" ? (
+          <button type="button" className="quiet-button" onClick={onStartStems}>
+            {stemStatus === "failed" ? "重试真实分轨" : "生成真实分轨"}
+          </button>
+        ) : null}
         {!delivered ? (
           <button type="button" className="stage-primary-action" onClick={onConfirm}>
             确认这版完成 <span aria-hidden="true">→</span>

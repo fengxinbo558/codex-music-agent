@@ -7,6 +7,13 @@ export default defineConfig({
   server: {
     host: "127.0.0.1",
     port: 5173,
+    proxy: {
+      "/local-audio-runtime": {
+        target: "http://127.0.0.1:8002",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/local-audio-runtime/, ""),
+      },
+    },
   },
   build: {
     outDir: "dist",

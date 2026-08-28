@@ -1,5 +1,6 @@
 import type {
   LyricDraftLine,
+  LyricWritingStyle,
   LyricVocalDraft,
   VocalDelivery,
   VocalPerformanceCue,
@@ -14,6 +15,7 @@ export function createLyricVocalDraft(input: {
   bpm: number;
   targetSeconds: number;
   vocalDelivery: VocalDelivery;
+  writingStyle?: LyricWritingStyle;
 }): LyricVocalDraft {
   const cleanLyrics = input.lyrics.map((line) => line.trim()).filter(Boolean);
   const lines = cleanLyrics.map<LyricDraftLine>((text, index) => ({
@@ -25,6 +27,7 @@ export function createLyricVocalDraft(input: {
   }));
   return {
     id: `lyrics-${Date.now()}`,
+    writingStyle: input.writingStyle ?? "conversational",
     lines,
     vocalCues: lines.flatMap((line, index) =>
       recommendedCues(line, index, lines.length, input.vocalDelivery),

@@ -40,7 +40,11 @@ export function planVersionDeletion({
 }
 
 function referencedAssetIds(version: ProjectVersion) {
-  return [version.audioAssetId, version.mastering?.sourceAssetId].filter(
+  return [
+    version.audioAssetId,
+    version.mastering?.sourceAssetId,
+    ...Object.values(version.stems?.assetIds ?? {}),
+  ].filter(
     (assetId): assetId is string => Boolean(assetId),
   );
 }

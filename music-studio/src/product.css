@@ -1274,6 +1274,91 @@
   color: #7a717f;
   font-size: 10px;
 }
+.vocal-pitch-editor {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(210px, 1.2fr) minmax(190px, 1fr) auto;
+  align-items: end;
+  gap: 8px 12px;
+  margin-top: 8px;
+  border-top: 1px solid rgba(169, 138, 209, 0.17);
+  padding-top: 10px;
+}
+.vocal-pitch-editor > header {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.vocal-pitch-editor > header div {
+  display: grid;
+  gap: 3px;
+}
+.vocal-pitch-editor > header strong {
+  font-size: 10px;
+  font-weight: 560;
+}
+.vocal-pitch-editor > header small {
+  color: var(--mint);
+  font-size: 7px;
+}
+.vocal-pitch-editor.is-locked > header small {
+  color: #716875;
+}
+.vocal-pitch-editor > p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #716875;
+  font-size: 7px;
+  line-height: 1.5;
+}
+.vocal-pitch-editor > label {
+  display: grid;
+  gap: 5px;
+}
+.vocal-pitch-editor > label span {
+  color: #756d79;
+  font-size: 7px;
+}
+.vocal-pitch-editor select {
+  min-width: 0;
+  width: 100%;
+  border: 1px solid var(--line);
+  background: #151119;
+  padding: 7px 8px;
+  color: #aca2af;
+  font-size: 8px;
+}
+.pitch-step-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+.pitch-step-options button,
+.apply-pitch-edit {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.012);
+  padding: 6px 7px;
+  color: #7d7481;
+  font-size: 7px;
+  cursor: pointer;
+}
+.pitch-step-options button.is-selected {
+  border-color: rgba(169, 138, 209, 0.48);
+  background: rgba(169, 138, 209, 0.09);
+  color: #c3b0d5;
+}
+.apply-pitch-edit {
+  min-height: 50px;
+  border-color: rgba(219, 163, 93, 0.36);
+  color: #c8a779;
+}
+.pitch-step-options button:disabled,
+.apply-pitch-edit:disabled,
+.vocal-pitch-editor select:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
 .workflow-board {
   padding: 3px 5px 16px;
 }
@@ -1451,7 +1536,7 @@
   color: #665e6b;
   font-size: 8px;
 }
-@media (max-width: 760px) {
+@media (max-width: 1024px) {
   .studio-main {
     grid-template-rows: minmax(400px, 1fr) 210px 315px;
   }
@@ -1466,7 +1551,7 @@
 
 /* Keep every desktop workspace inside one viewport. Each tall region owns its
    own scroll so the transport, composer and version actions stay reachable. */
-@media (min-width: 761px) {
+@media (min-width: 1025px) {
   .app-shell.is-workspace,
   .app-shell.is-studio {
     min-height: 0;
@@ -1593,13 +1678,22 @@
   font-size: 8px;
   white-space: nowrap;
 }
+.stem-readiness.is-running {
+  color: var(--amber);
+}
+.stem-readiness.is-ready {
+  color: var(--mint);
+}
+.stem-readiness.is-failed {
+  color: var(--danger);
+}
 .studio-column {
   min-height: 0;
 }
 .studio-main {
   overflow-x: hidden;
   overflow-y: auto;
-  grid-template-rows: minmax(270px, auto) 178px minmax(245px, auto);
+  grid-template-rows: minmax(270px, auto) minmax(178px, auto) minmax(245px, auto);
   scrollbar-color: #3a303e transparent;
 }
 .timeline-panel {
@@ -1633,6 +1727,92 @@
   background: linear-gradient(180deg, rgba(23, 18, 26, 0.97), #17121a 18%);
   padding: 15px 21px 18px;
   box-shadow: 0 -18px 36px rgba(12, 9, 14, 0.28);
+}
+.idea-booster {
+  display: grid;
+  gap: 8px;
+  margin: 0 0 11px;
+  border: 1px solid rgba(169, 138, 209, 0.2);
+  background: linear-gradient(145deg, rgba(169, 138, 209, 0.045), rgba(114, 201, 174, 0.018));
+  padding: 10px;
+}
+.idea-booster > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.idea-booster > header div {
+  display: grid;
+  gap: 3px;
+}
+.idea-booster > header span {
+  color: var(--violet);
+  font-family: "DM Mono", monospace;
+  font-size: 7px;
+  letter-spacing: 0.12em;
+}
+.idea-booster > header strong {
+  color: #cfc6d1;
+  font-size: 9px;
+  font-weight: 560;
+}
+.idea-booster > header small {
+  color: var(--mint);
+  font-size: 7px;
+  white-space: nowrap;
+}
+.idea-booster-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+}
+.idea-booster-grid button {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  border: 1px solid var(--line);
+  background: rgba(13, 10, 15, 0.58);
+  padding: 8px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.idea-booster-grid button:hover {
+  border-color: rgba(219, 163, 93, 0.42);
+  background: rgba(219, 163, 93, 0.045);
+}
+.idea-booster-grid button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.idea-booster-grid button > span {
+  color: var(--amber);
+  font-size: 7px;
+}
+.idea-booster-grid button > strong {
+  overflow: hidden;
+  color: #a69ca9;
+  font-size: 8px;
+  font-weight: 540;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.idea-booster-grid button > p {
+  display: -webkit-box;
+  overflow: hidden;
+  min-height: 32px;
+  margin: 0;
+  color: #7f7583;
+  font-size: 8px;
+  line-height: 1.55;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.idea-booster-grid button > em {
+  color: #81708f;
+  font-size: 7px;
+  font-style: normal;
 }
 .master-timeline-scroll {
   min-width: 620px;
@@ -1736,6 +1916,98 @@
   font-family: "DM Mono", monospace;
   font-size: 7px;
 }
+.real-stem-tracks {
+  display: grid;
+  gap: 5px;
+  margin-top: 16px;
+  border-top: 1px solid var(--line-strong);
+  padding-top: 14px;
+}
+.real-stem-tracks > header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 5px;
+}
+.real-stem-tracks h2 {
+  margin: 3px 0 0;
+  font-size: 13px;
+  font-weight: 580;
+}
+.real-stem-tracks > header small {
+  color: var(--mint);
+  font-size: 7px;
+}
+.real-stem-row {
+  display: grid;
+  min-height: 62px;
+  grid-template-columns: 118px minmax(0, 1fr);
+  border: 1px solid var(--line);
+}
+.real-stem-label {
+  display: grid;
+  grid-template-columns: 4px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  border-right: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.008);
+  padding: 8px;
+}
+.real-stem-label > i {
+  width: 4px;
+  height: 32px;
+  border-radius: 4px;
+  background: var(--stem-color, var(--violet));
+}
+.real-stem-label > span {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+.real-stem-label strong {
+  font-size: 9px;
+  font-weight: 540;
+}
+.real-stem-label small {
+  color: #665e6b;
+  font-size: 6px;
+}
+.real-stem-label button {
+  grid-column: 2;
+  width: max-content;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: #89749b;
+  font-size: 7px;
+  cursor: pointer;
+}
+.real-stem-wave {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 2px;
+  overflow: hidden;
+  padding: 9px 12px;
+  background: repeating-linear-gradient(90deg, transparent 0, transparent calc(12.5% - 1px), rgba(255, 255, 255, 0.035) 12.5%);
+}
+.real-stem-wave i {
+  min-width: 1px;
+  flex: 1;
+  border-radius: 1px;
+  background: var(--stem-color, var(--violet));
+  opacity: 0.7;
+}
+.real-stem-row.is-vocals { --stem-color: #d48bab; }
+.real-stem-row.is-drums { --stem-color: #d5a75e; }
+.real-stem-row.is-bass { --stem-color: #68b9ae; }
+.real-stem-row.is-other { --stem-color: #7f88c9; }
+.real-stem-tracks > p {
+  margin: 2px 0 0 118px;
+  color: #6d6571;
+  font-size: 7px;
+}
 .master-wave-empty {
   display: grid;
   min-height: 175px;
@@ -1765,7 +2037,7 @@
   line-height: 1.6;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 1024px) {
   .studio-main {
     display: grid;
     min-height: 0;
@@ -2952,7 +3224,7 @@
   }
 }
 
-@media (max-width: 760px) {
+@media (max-width: 1024px) {
   html,
   body,
   #root {
@@ -3509,6 +3781,132 @@
   font-size: 8px;
   line-height: 1.5;
 }
+.lyric-style-selector {
+  display: grid;
+  gap: 9px;
+  border: 1px solid rgba(169, 138, 209, 0.22);
+  background: rgba(169, 138, 209, 0.025);
+  padding: 11px;
+}
+.lyric-style-selector > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+.lyric-style-selector h4 {
+  margin: 4px 0 0;
+  font-size: 11px;
+  font-weight: 600;
+}
+.lyric-style-selector > header small {
+  color: var(--mint);
+  font-size: 7px;
+  white-space: nowrap;
+}
+.lyric-style-help {
+  margin: 0;
+  color: #867c89;
+  font-size: 8px;
+  line-height: 1.55;
+}
+.lyric-style-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.lyric-style-list button {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  border: 1px solid var(--line);
+  background: rgba(13, 10, 15, 0.55);
+  padding: 9px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.lyric-style-list button.is-selected {
+  border-color: rgba(219, 163, 93, 0.55);
+  background: rgba(219, 163, 93, 0.055);
+  box-shadow: inset 2px 0 var(--amber);
+}
+.lyric-style-rank {
+  color: var(--violet);
+  font-family: "DM Mono", monospace;
+  font-size: 6px;
+  letter-spacing: 0.08em;
+}
+.lyric-style-list strong {
+  color: #d3cbd5;
+  font-size: 10px;
+}
+.lyric-style-list small {
+  color: #897f8c;
+  font-size: 7px;
+  line-height: 1.4;
+}
+.lyric-style-list blockquote {
+  margin: 2px 0;
+  border-left: 1px solid rgba(114, 201, 174, 0.32);
+  padding-left: 6px;
+  color: #9aadb0;
+  font-size: 7px;
+  font-style: normal;
+  line-height: 1.55;
+}
+.lyric-style-list p {
+  margin: 0;
+  color: #716874;
+  font-size: 7px;
+  line-height: 1.45;
+}
+.lyric-style-list em {
+  margin-top: 2px;
+  color: var(--amber);
+  font-size: 7px;
+  font-style: normal;
+}
+.lyric-style-guide {
+  color: #7e7481;
+  font-size: 8px;
+}
+.lyric-style-guide summary {
+  color: #9b909e;
+  cursor: pointer;
+}
+.lyric-style-guide p {
+  margin: 7px 0 0;
+  line-height: 1.65;
+}
+.lyric-rewrite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.lyric-rewrite-actions button {
+  border: 1px solid rgba(219, 163, 93, 0.34);
+  background: rgba(219, 163, 93, 0.045);
+  padding: 7px 9px;
+  color: #c4a476;
+  font-size: 8px;
+  cursor: pointer;
+}
+.lyric-rewrite-actions button + button {
+  border-color: var(--line);
+  background: transparent;
+  color: #8b818e;
+}
+.lyric-rewrite-actions button:disabled {
+  cursor: wait;
+  opacity: 0.45;
+}
+.lyric-rewrite-actions small {
+  width: 100%;
+  color: #69616d;
+  font-size: 7px;
+}
 .lyric-draft-list {
   display: grid;
   gap: 8px;
@@ -3745,9 +4143,19 @@
   gap: 7px;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 1024px) {
   .confirmation-stage {
     padding: 18px 20px;
+  }
+  .idea-booster-grid,
+  .lyric-style-list {
+    grid-template-columns: 1fr;
+  }
+  .vocal-pitch-editor {
+    grid-template-columns: 1fr;
+  }
+  .apply-pitch-edit {
+    min-height: 38px;
   }
   .confirmation-actions {
     position: static;

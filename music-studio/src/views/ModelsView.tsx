@@ -5,6 +5,7 @@ import type { ModelConnection, MusicEngineStatus } from "../types";
 type ModelsViewProps = {
   voiceAvailable: boolean;
   musicEngineStatus: MusicEngineStatus;
+  localAudioStatus: "checking" | "ready" | "offline";
   onInstallPlan: () => void;
   onNotifications: () => void;
   onAnnounce: (message: string) => void;
@@ -13,6 +14,7 @@ type ModelsViewProps = {
 export function ModelsView({
   voiceAvailable,
   musicEngineStatus,
+  localAudioStatus,
   onInstallPlan,
   onNotifications,
   onAnnounce,
@@ -41,7 +43,29 @@ export function ModelsView({
                 ? "服务已启动，正在完成第一次模型准备；完成后会自动切换为真实音乐生成。"
                 : "本地运行时已预留；服务未启动时只会生成链路试听。",
         }
-      : model.id === "speech"
+      : model.id === "demucs"
+        ? {
+            ...model,
+            name: "真实分轨与人声编辑",
+            status:
+              localAudioStatus === "ready"
+                ? ("ready" as const)
+                : localAudioStatus === "checking"
+                  ? ("preparing" as const)
+                  : ("offline" as const),
+            runtime:
+              localAudioStatus === "ready"
+                ? "Demucs + 基频分析 · 本机 8002"
+                : localAudioStatus === "checking"
+                  ? "正在检查本机音频服务"
+                  : "本机音频服务未启动",
+            note:
+              localAudioStatus === "ready"
+                ? "真实四分轨、逐句基频检测、音高移动和重新混音均可用。"
+                : "服务未启动时保留完整混音，不会显示假分轨或假音高编辑。",
+            capabilities: ["四轨分离", "基频检测", "音高升降", "重新混音"],
+          }
+        : model.id === "speech"
         ? {
             ...model,
             status: voiceAvailable
@@ -187,7 +211,7 @@ function ModelRow({
   return (
     <article className={`model-row status-${model.status}`}>
       <div className="model-symbol" aria-hidden="true">
-        {model.role === "agent" ? "C/" : model.role === "input" ? "◉" : "≈"}
+        {model.role === "agent" ? "♪" : model.role === "input" ? "◉" : "≈"}
       </div>
       <div className="model-copy">
         <div>

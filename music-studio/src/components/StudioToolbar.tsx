@@ -6,6 +6,7 @@ type StudioToolbarProps = {
   zoom: number;
   onModeChange: (mode: GenerationMode) => void;
   onZoomChange: (zoom: number) => void;
+  stemStatus?: "idle" | "running" | "ready" | "failed";
 };
 
 const modes: Array<{ id: GenerationMode; label: string; note: string }> = [
@@ -21,6 +22,7 @@ export function StudioToolbar({
   zoom,
   onModeChange,
   onZoomChange,
+  stemStatus = "idle",
 }: StudioToolbarProps) {
   const selectedMode = modes.find((item) => item.id === mode) ?? modes[0];
   return (
@@ -69,7 +71,15 @@ export function StudioToolbar({
         <span aria-hidden="true">＋</span>
         <output>{zoom}%</output>
       </label>
-      <span className="stem-readiness">完整混音 · 分轨未准备</span>
+      <span className={`stem-readiness is-${stemStatus}`}>
+        {stemStatus === "ready"
+          ? "完整混音 · 4 条真实分轨"
+          : stemStatus === "running"
+            ? "正在生成真实分轨"
+            : stemStatus === "failed"
+              ? "完整混音 · 分轨可重试"
+              : "完整混音 · 分轨未准备"}
+      </span>
     </div>
   );
 }

@@ -54,4 +54,17 @@ describe("createFallbackPlan", () => {
     expect(plan.brief.lyrics).toContain("现在——怒吼");
     expect(plan.brief.lyrics.every((line) => line.length <= 18)).toBe(true);
   });
+
+  it("honors a novice's selected lyric writing route", () => {
+    const plan = createFallbackPlan({
+      projectId: "demo",
+      prompt: "原始创意：把聊天记录唱出来\n歌词写法：对话体",
+      vocalDelivery: "natural",
+      selection: [],
+      currentProject: { bpm: 92, key: "C major", selectedVersion: "v3" },
+    });
+
+    expect(plan.brief.lyrics[0]).toMatch(/^你说/);
+    expect(plan.brief.lyrics.some((line) => line.includes("正在输入"))).toBe(true);
+  });
 });

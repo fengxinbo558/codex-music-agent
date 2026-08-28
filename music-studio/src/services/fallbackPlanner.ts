@@ -87,7 +87,7 @@ export function createFallbackPlan(
       structure: isAggressive
         ? ["压迫感前奏", "主歌蓄力", "预副歌抬升", "爆发副歌", "重击尾奏"]
         : ["前奏 8 小节", "主歌", "预副歌", "副歌", "短尾奏"],
-      lyrics: fallbackLyrics(theme, request.vocalDelivery),
+      lyrics: fallbackLyrics(theme, request.vocalDelivery, prompt),
       preserve:
         request.selection.length > 0
           ? request.selection.map((item) => `保留已选择片段：${item}`)
@@ -132,7 +132,58 @@ function vocalMode(delivery: PlanMusicRequest["vocalDelivery"]) {
 function fallbackLyrics(
   theme: string,
   delivery: PlanMusicRequest["vocalDelivery"],
+  prompt: string,
 ) {
+  if (prompt.includes("歌词写法：对话体")) {
+    return [
+      "你说 最近是不是太安静",
+      "我说 只是有些话没发出去",
+      "你问 那我们还算不算靠近",
+      "我把正在输入删了又写",
+      "最后只回了一句晚安",
+      "没说完的话却唱到天亮",
+    ];
+  }
+  if (prompt.includes("歌词写法：现代诗意象")) {
+    return [
+      "路灯把雨折进后视镜",
+      "空座位还留着你的影子",
+      "风从没关紧的窗经过",
+      "把沉默吹成很远的潮汐",
+      "我在天亮以前绕回原地",
+      "等一句回声替你靠近",
+    ];
+  }
+  if (prompt.includes("歌词写法：散文感")) {
+    return [
+      "那天你走得很慢 像在等我开口",
+      "我记得街边的灯刚好一盏盏亮起",
+      "我们把最重要的话留在普通的告别里",
+      "后来每次经过那里 我都会放慢脚步",
+      "不是还想回到过去",
+      "只是终于学会把想念说清楚",
+    ];
+  }
+  if (prompt.includes("歌词写法：口语叙事")) {
+    return [
+      "我又绕回我们走过的那条街",
+      "手机里那句话还是没有发出去",
+      "朋友问我是不是早就没关系",
+      "我笑着说只是偶尔会想起",
+      "可当熟悉的歌突然响起",
+      "我才承认有些告别没有过去",
+    ];
+  }
+  if (prompt.includes("歌词写法：短句钩子")) {
+    return [
+      "别替沉默认错",
+      "别再低头",
+      "压住的火 现在开口",
+      "我不退后",
+      "我不退后",
+      "这一回 让全世界听见我怒吼",
+    ];
+  }
   if (delivery === "angryRock") {
     return [
       `“${theme}” 别再沉默`,

@@ -7,10 +7,15 @@ import {
   startAceStepRuntime,
   stopAceStepRuntime,
 } from "./ace-step-runtime.mjs";
+import {
+  startLocalAudioRuntime,
+  stopLocalAudioRuntime,
+} from "./local-audio-runtime.mjs";
 
 const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
 const activeThreads = new Map();
 let aceStepProcess = null;
+let localAudioProcess = null;
 
 const musicBriefSchema = {
   type: "object",
@@ -65,7 +70,7 @@ function createWindow() {
     minWidth: 1180,
     minHeight: 760,
     backgroundColor: "#151119",
-    title: "Codex Music Agent",
+    title: "音乐创作台",
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "default",
     webPreferences: {
       preload: path.join(currentDirectory, "preload.cjs"),
@@ -90,6 +95,12 @@ app.whenReady().then(() => {
       aceStepProcess = processHandle;
     },
   );
+  void startLocalAudioRuntime(
+    path.join(currentDirectory, ".."),
+    path.join(app.getPath("userData"), "local-audio-service"),
+  ).then((processHandle) => {
+    localAudioProcess = processHandle;
+  });
   ipcMain.handle("music-agent:plan", async (_event, rawRequest) => {
     const request = normalizeRequest(rawRequest);
     const projectDirectory = path.join(
@@ -135,11 +146,15 @@ app.whenReady().then(() => {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     stopAceStepRuntime(aceStepProcess);
+    stopLocalAudioRuntime(localAudioProcess);
     app.quit();
   }
 });
 
-app.on("before-quit", () => stopAceStepRuntime(aceStepProcess));
+app.on("before-quit", () => {
+  stopAceStepRuntime(aceStepProcess);
+  stopLocalAudioRuntime(localAudioProcess);
+});
 
 function resolveCodexPath() {
   const candidates = [

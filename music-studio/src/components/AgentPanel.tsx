@@ -14,13 +14,17 @@ import type {
   MusicWorkflow,
   ProjectVersion,
   LyricVocalDraft,
+  LyricWritingStyle,
   VocalTechnique,
 } from "../types";
+import { appendIdeaInspiration } from "../services/ideaInspiration";
+import { recommendLyricWritingStyles } from "../services/lyricWritingStyles";
 import { AgentWorkflow } from "./AgentWorkflow";
 import { DirectionConfirmation } from "./DirectionConfirmation";
 import { DeliveryReview } from "./DeliveryReview";
 import { GenerationResultActions } from "./GenerationResultActions";
 import { GenerationSettings } from "./GenerationSettings";
+import { IdeaInspirationPanel } from "./IdeaInspirationPanel";
 import { LyricsVocalConfirmation } from "./LyricsVocalConfirmation";
 import { ProductionHistory } from "./ProductionHistory";
 import { ReferenceAudioControls } from "./ReferenceAudioControls";
@@ -72,6 +76,10 @@ type AgentPanelProps = {
   onRefreshDirections: () => void;
   onReturnToIdea: () => void;
   onChangeLyricLine: (lineId: string, text: string) => void;
+  onSelectLyricWritingStyle: (style: LyricWritingStyle) => void;
+  onRewriteLyrics: () => void;
+  onUndoLyricRewrite: () => void;
+  canUndoLyricRewrite: boolean;
   onToggleTechnique: (lineId: string, technique: VocalTechnique) => void;
   onApproveLyrics: () => void;
   onReturnToDirection: () => void;
@@ -81,6 +89,7 @@ type AgentPanelProps = {
   onStartFullSong: () => void;
   onReviseSample: (message: string) => void;
   onBackToLyrics: () => void;
+  onStartStems: () => void;
   onConfirmDelivery: () => void;
 };
 
@@ -136,6 +145,10 @@ export function AgentPanel({
   onRefreshDirections,
   onReturnToIdea,
   onChangeLyricLine,
+  onSelectLyricWritingStyle,
+  onRewriteLyrics,
+  onUndoLyricRewrite,
+  canUndoLyricRewrite,
   onToggleTechnique,
   onApproveLyrics,
   onReturnToDirection,
@@ -145,6 +158,7 @@ export function AgentPanel({
   onStartFullSong,
   onReviseSample,
   onBackToLyrics,
+  onStartStems,
   onConfirmDelivery,
 }: AgentPanelProps) {
   const isBusy = state === "thinking" || state === "rendering";
@@ -216,7 +230,16 @@ export function AgentPanel({
           <LyricsVocalConfirmation
             draft={lyricDraft}
             targetSeconds={preferences.duration}
+            writingStyles={recommendLyricWritingStyles({
+              idea: creationSession.idea,
+              brief: plan?.brief,
+            })}
             onChangeLine={onChangeLyricLine}
+            onSelectWritingStyle={onSelectLyricWritingStyle}
+            onRewriteLyrics={onRewriteLyrics}
+            onUndoRewrite={onUndoLyricRewrite}
+            isRewriting={isBusy}
+            canUndoRewrite={canUndoLyricRewrite}
             onToggleTechnique={onToggleTechnique}
             onApprove={onApproveLyrics}
             onBack={onReturnToDirection}
@@ -246,6 +269,7 @@ export function AgentPanel({
             isPlaying={isPlaying}
             onTogglePlay={onTogglePlay}
             onExport={onExport}
+            onStartStems={onStartStems}
             onConfirm={onConfirmDelivery}
           />
         ) : (
@@ -317,6 +341,13 @@ export function AgentPanel({
             </button>
           ))}
         </div>
+        <IdeaInspirationPanel
+          idea={prompt}
+          disabled={isBusy}
+          onApply={(suggestion) =>
+            onPromptChange(appendIdeaInspiration(prompt, suggestion))
+          }
+        />
         <GenerationSettings
           preferences={preferences}
           disabled={isBusy}

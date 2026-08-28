@@ -96,3 +96,6 @@ CHANGELOG.ignore.md
 # Python bytecode files
 __pycache__/
 *.pyc
+.pytest_cache/
+*.egg-info/
+music-studio/local-audio-service/.local-audio-data/

@@ -1,4 +1,11 @@
 import { PROJECT_DURATION, sections } from "../data/demoProject";
+import type { MusicAsset, StemRole } from "../types";
+import { stemRoleLabel } from "../services/stemPipeline";
+
+type TimelineStem = {
+  role: StemRole;
+  asset: MusicAsset;
+};
 
 type TimelineProps = {
   waveform: number[];
@@ -7,6 +14,9 @@ type TimelineProps = {
   hasAudio: boolean;
   onSeek: (seconds: number) => void;
   zoom?: number;
+  stems?: TimelineStem[];
+  playingAssetId?: string | null;
+  onAuditionStem?: (asset: MusicAsset) => void;
 };
 
 export function Timeline({
@@ -16,6 +26,9 @@ export function Timeline({
   hasAudio,
   onSeek,
   zoom = 100,
+  stems = [],
+  playingAssetId,
+  onAuditionStem,
 }: TimelineProps) {
   const safeDuration = Math.max(0, duration);
   const progress = safeDuration
@@ -37,7 +50,9 @@ export function Timeline({
             className={`selection-beacon ${hasAudio ? "is-active" : ""}`}
           />
           {hasAudio
-            ? "当前是一份真实混合音频；分轨完成后才显示独立音轨"
+            ? stems.length === 4
+              ? "完整混音与四条真实分轨均已准备"
+              : "当前是一份真实混合音频；分轨完成后才显示独立音轨"
             : "生成歌曲后，这里会显示它的真实波形"}
         </div>
       </div>
@@ -95,6 +110,43 @@ export function Timeline({
             <span>{formatTime(safeDuration / 2)}</span>
             <span>{formatTime(safeDuration)}</span>
           </div>
+          {stems.length === 4 ? (
+            <section className="real-stem-tracks" aria-labelledby="stem-track-title">
+              <header>
+                <div>
+                  <span className="eyebrow">REAL STEMS</span>
+                  <h2 id="stem-track-title">真实分轨</h2>
+                </div>
+                <small>Demucs 分离 · 已通过重构检查</small>
+              </header>
+              {stems.map(({ role, asset }) => (
+                <div key={role} className={`real-stem-row is-${role}`}>
+                  <div className="real-stem-label">
+                    <i aria-hidden="true" />
+                    <span>
+                      <strong>{stemRoleLabel(role)}</strong>
+                      <small>真实 WAV</small>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => onAuditionStem?.(asset)}
+                    >
+                      {playingAssetId === asset.id ? "正在试听" : "单独试听"}
+                    </button>
+                  </div>
+                  <div className="real-stem-wave" aria-label={`${stemRoleLabel(role)}真实波形`}>
+                    {asset.waveform.map((height, index) => (
+                      <i
+                        key={index}
+                        style={{ height: `${Math.max(4, height * 100)}%` }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+              <p>这些轨道来自真实音频分离，可单独试听；没有生成成功时不会显示。</p>
+            </section>
+          ) : null}
         </div>
       ) : (
         <div className="master-wave-empty">

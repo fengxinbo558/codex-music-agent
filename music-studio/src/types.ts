@@ -7,6 +7,8 @@ export type AgentState =
 
 export type TrackKind = "vocal" | "instrument" | "drums" | "texture";
 
+export type StemRole = "vocals" | "drums" | "bass" | "other";
+
 export type AppView = "projects" | "studio" | "library" | "models";
 
 export type AudioVariant = "source" | "optimized";
@@ -24,6 +26,13 @@ export type VocalDelivery = "natural" | "angryRock" | "extremeScream";
 export type LyricClarity = "natural" | "clear";
 
 export type LyricsMode = "auto" | "current";
+
+export type LyricWritingStyle =
+  | "conversational"
+  | "poetic"
+  | "dialogue"
+  | "prose"
+  | "hook";
 
 export type CreativityLevel = "stable" | "balanced" | "surprise";
 
@@ -250,6 +259,16 @@ export type ProjectVersion = {
     status: "complete" | "failed";
     processedAt?: string;
   };
+  stems?: {
+    status: "running" | "ready" | "failed";
+    jobId?: string;
+    assetIds?: Partial<Record<StemRole, string>>;
+    error?: string;
+    quality?: {
+      passed: boolean;
+      relativeReconstructionError: number;
+    };
+  };
 };
 
 export type ProjectSummary = {
@@ -282,7 +301,14 @@ export type MusicAsset = {
   projectId?: string;
   versionId?: string;
   visibility?: "visible" | "internal";
-  audioRole?: "source" | "mastered";
+  audioRole?:
+    | "source"
+    | "mastered"
+    | "stem-vocals"
+    | "stem-drums"
+    | "stem-bass"
+    | "stem-other"
+    | "vocal-edit";
   favorite: boolean;
   createdAt: string;
 };
@@ -389,6 +415,7 @@ export type LyricDraftLine = {
 
 export type LyricVocalDraft = {
   id: string;
+  writingStyle: LyricWritingStyle;
   lines: LyricDraftLine[];
   vocalCues: VocalPerformanceCue[];
   estimatedSeconds: number;
@@ -425,6 +452,32 @@ export type GeneratedAudio = {
 };
 
 export type MusicEngineStatus = "checking" | "preparing" | "ready" | "offline";
+
+export type LocalAudioCapability = "stems" | "pitch_analysis" | "pitch_shift";
+
+export type LocalAudioJobStatus =
+  | "queued"
+  | "running"
+  | "ready"
+  | "failed"
+  | "cancelled";
+
+export type LocalAudioJob = {
+  id: string;
+  kind: string;
+  status: LocalAudioJobStatus;
+  progress: number;
+  label: string;
+  asset_ids: string[];
+  result?: Record<string, unknown>;
+  error: string | null;
+};
+
+export type LocalAudioHealth = {
+  status: "ok";
+  service: string;
+  capabilities: Record<LocalAudioCapability, boolean>;
+};
 
 declare global {
   interface Window {

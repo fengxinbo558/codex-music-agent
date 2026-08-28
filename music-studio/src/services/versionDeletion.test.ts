@@ -60,6 +60,38 @@ describe("version deletion", () => {
       planVersionDeletion({ versionId: "missing", versions, assets }),
     ).toEqual({ remainingVersions: versions, assetIds: [] });
   });
+
+  it("keeps shared stems when an edited child version still uses them", () => {
+    const versionsWithStems: ProjectVersion[] = [
+      {
+        ...versions[0],
+        stems: {
+          status: "ready",
+          assetIds: { drums: "shared-drums", vocals: "edited-vocals" },
+        },
+      },
+      {
+        ...versions[1],
+        stems: {
+          status: "ready",
+          assetIds: { drums: "shared-drums", vocals: "parent-vocals" },
+        },
+      },
+    ];
+    const stemAssets = [
+      ...assets,
+      asset("shared-drums", "parent"),
+      asset("parent-vocals", "parent"),
+      asset("edited-vocals", "child"),
+    ];
+    const plan = planVersionDeletion({
+      versionId: "parent",
+      versions: versionsWithStems,
+      assets: stemAssets,
+    });
+    expect(plan.assetIds).toContain("parent-vocals");
+    expect(plan.assetIds).not.toContain("shared-drums");
+  });
 });
 
 function asset(id: string, versionId: string): MusicAsset {

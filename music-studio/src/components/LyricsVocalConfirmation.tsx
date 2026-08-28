@@ -1,8 +1,11 @@
 import type {
+  LyricWritingStyle,
   LyricVocalDraft,
   VocalTechnique,
 } from "../types";
 import { vocalTechniqueLabel } from "../services/lyricDraft";
+import type { LyricWritingStyleGuide } from "../services/lyricWritingStyles";
+import { LyricWritingStyleSelector } from "./LyricWritingStyleSelector";
 
 const EXTRA_TECHNIQUES: VocalTechnique[] = [
   "angry",
@@ -25,7 +28,13 @@ const EXTRA_TECHNIQUES: VocalTechnique[] = [
 type LyricsVocalConfirmationProps = {
   draft: LyricVocalDraft;
   targetSeconds: number;
+  writingStyles: LyricWritingStyleGuide[];
   onChangeLine: (lineId: string, text: string) => void;
+  onSelectWritingStyle: (style: LyricWritingStyle) => void;
+  onRewriteLyrics: () => void;
+  onUndoRewrite: () => void;
+  isRewriting: boolean;
+  canUndoRewrite: boolean;
   onToggleTechnique: (lineId: string, technique: VocalTechnique) => void;
   onApprove: () => void;
   onBack: () => void;
@@ -34,7 +43,13 @@ type LyricsVocalConfirmationProps = {
 export function LyricsVocalConfirmation({
   draft,
   targetSeconds,
+  writingStyles,
   onChangeLine,
+  onSelectWritingStyle,
+  onRewriteLyrics,
+  onUndoRewrite,
+  isRewriting,
+  canUndoRewrite,
   onToggleTechnique,
   onApprove,
   onBack,
@@ -49,6 +64,22 @@ export function LyricsVocalConfirmation({
         </div>
         <span className="confirmation-required">需要你确认</span>
       </header>
+      <LyricWritingStyleSelector
+        styles={writingStyles}
+        selectedStyle={draft.writingStyle ?? "conversational"}
+        onSelect={onSelectWritingStyle}
+      />
+      <div className="lyric-rewrite-actions">
+        <button type="button" disabled={isRewriting} onClick={onRewriteLyrics}>
+          {isRewriting ? "正在重新起草…" : "按所选写法重新起草歌词"}
+        </button>
+        {canUndoRewrite ? (
+          <button type="button" disabled={isRewriting} onClick={onUndoRewrite}>
+            撤回上次重写
+          </button>
+        ) : null}
+        <small>每次重写都会保留上一稿，仍需你逐句确认。</small>
+      </div>
       <div className={`duration-fit ${tooLong ? "is-warning" : "is-ready"}`}>
         <strong>{draft.lines.length} 句 · 预计 {draft.estimatedSeconds} 秒</strong>
         <span>

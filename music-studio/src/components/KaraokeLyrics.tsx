@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 
 import { activeLyricCueIndex } from "../services/lyricTiming";
 import type { LyricCue } from "../types";
+import { VocalPitchEditor } from "./VocalPitchEditor";
 
 type KaraokeLyricsProps = {
   cues: LyricCue[];
@@ -9,6 +10,9 @@ type KaraokeLyricsProps = {
   hasAudio: boolean;
   isInstrumental: boolean;
   onSeek: (seconds: number) => void;
+  canEditPitch?: boolean;
+  pitchEditing?: boolean;
+  onApplyPitch?: (cue: LyricCue, semitones: number) => void;
 };
 
 export function KaraokeLyrics({
@@ -17,6 +21,9 @@ export function KaraokeLyrics({
   hasAudio,
   isInstrumental,
   onSeek,
+  canEditPitch = false,
+  pitchEditing = false,
+  onApplyPitch,
 }: KaraokeLyricsProps) {
   const activeIndex = useMemo(
     () => activeLyricCueIndex(cues, currentTime),
@@ -70,6 +77,15 @@ export function KaraokeLyrics({
         <p className="karaoke-note">
           当前按句长和歌曲时长智能估时；点击任意一句可以跳到对应位置。
         </p>
+      ) : null}
+      {!isInstrumental && onApplyPitch ? (
+        <VocalPitchEditor
+          cues={cues}
+          activeCueId={cues[activeIndex]?.id}
+          canEdit={canEditPitch}
+          isProcessing={pitchEditing}
+          onApply={onApplyPitch}
+        />
       ) : null}
     </section>
   );
