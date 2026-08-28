@@ -68,8 +68,8 @@ export const initialAssets: MusicAsset[] = [];
 
 export const modelConnections: ModelConnection[] = [
   {
-    id: "codex",
-    name: "Codex Agent",
+    id: "music-director",
+    name: "音乐制作助理",
     role: "agent",
     status: "connected",
     runtime: "本地 Agent 进程",
@@ -83,7 +83,7 @@ export const modelConnections: ModelConnection[] = [
     status: "ready",
     runtime: "浏览器本地",
     note: "用于验证从 Agent 计划到可播放 WAV 的完整链路，不代表正式音乐质量。",
-    capabilities: ["快速试听", "WAV 输出", "多轨演示"],
+    capabilities: ["快速试听", "WAV 输出", "单轨链路验证"],
   },
   {
     id: "ace-step",
@@ -143,6 +143,6 @@ export const initialTasks: GenerationTask[] = [
     title: "生成主歌歌词草案",
     status: "complete",
     time: "28 分钟前",
-    detail: "Codex Agent",
+    detail: "音乐制作助理",
   },
 ];

@@ -49,7 +49,7 @@ export function createFallbackPlan(
 
   return {
     source: "local",
-    warning: "Codex 暂未连接，本次由内置音乐规划器完成。",
+    warning: "智能规划暂未连接，本次由本机音乐规划器完成。",
     brief: {
       title: isExtremeScream
         ? "撕开沉默"

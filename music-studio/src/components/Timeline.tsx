@@ -1,61 +1,50 @@
-import type { CSSProperties } from "react";
-
 import { PROJECT_DURATION, sections } from "../data/demoProject";
-import type { MusicClip, MusicTrack } from "../types";
 
 type TimelineProps = {
-  tracks: MusicTrack[];
-  selectedClips: string[];
-  playhead: number;
-  onToggleClip: (clipId: string) => void;
-  onToggleTrack: (trackId: string, field: "muted" | "solo") => void;
-  onAuditionClip: (clip: MusicClip) => void | Promise<void>;
-  auditioningClipId: string | null;
-  canAudition: boolean;
+  waveform: number[];
+  duration: number;
+  currentTime: number;
+  hasAudio: boolean;
+  onSeek: (seconds: number) => void;
   zoom?: number;
 };
 
 export function Timeline({
-  tracks,
-  selectedClips,
-  playhead,
-  onToggleClip,
-  onToggleTrack,
-  onAuditionClip,
-  auditioningClipId,
-  canAudition,
+  waveform,
+  duration,
+  currentTime,
+  hasAudio,
+  onSeek,
   zoom = 100,
 }: TimelineProps) {
+  const safeDuration = Math.max(0, duration);
+  const progress = safeDuration
+    ? Math.min(100, (currentTime / safeDuration) * 100)
+    : 0;
+
   return (
-    <section className="timeline-panel" aria-labelledby="timeline-heading">
+    <section
+      className="timeline-panel master-timeline"
+      aria-labelledby="timeline-heading"
+    >
       <div className="timeline-title-row">
         <div>
-          <span className="eyebrow">ARRANGEMENT</span>
-          <h1 id="timeline-heading">编曲时间线</h1>
+          <span className="eyebrow">MASTER RECORDING</span>
+          <h1 id="timeline-heading">完整歌曲波形</h1>
         </div>
         <div className="selection-summary" aria-live="polite">
           <span
-            className={
-              selectedClips.length
-                ? "selection-beacon is-active"
-                : "selection-beacon"
-            }
+            className={`selection-beacon ${hasAudio ? "is-active" : ""}`}
           />
-          {selectedClips.length
-            ? `正在查看 ${selectedClips.length} 个结构片段`
-            : "当前是结构示意；局部重绘待真实接通"}
+          {hasAudio
+            ? "当前是一份真实混合音频；分轨完成后才显示独立音轨"
+            : "生成歌曲后，这里会显示它的真实波形"}
         </div>
       </div>
 
-      <div className="timeline-scroll" style={{ width: `${zoom}%` }}>
-        <div
-          className="timeline-frame"
-          style={{ gridTemplateRows: `30px repeat(${tracks.length}, 62px)` }}
-        >
-          <div className="timeline-corner" aria-hidden="true">
-            音轨
-          </div>
-          <div className="section-ruler" aria-hidden="true">
+      {hasAudio && waveform.length ? (
+        <div className="master-timeline-scroll" style={{ width: `${zoom}%` }}>
+          <div className="master-ruler" aria-hidden="true">
             {sections.map((section) => (
               <span
                 key={section.id}
@@ -68,125 +57,61 @@ export function Timeline({
               </span>
             ))}
           </div>
-
-          {tracks.map((track) => (
-            <TrackRow
-              key={track.id}
-              track={track}
-              selectedClips={selectedClips}
-              playhead={playhead}
-              onToggleClip={onToggleClip}
-              onToggleTrack={onToggleTrack}
-              onAuditionClip={onAuditionClip}
-              auditioningClipId={auditioningClipId}
-              canAudition={canAudition}
-            />
-          ))}
+          <div className="master-track">
+            <div className="master-track-label">
+              <i aria-hidden="true" />
+              <span>
+                <strong>完整混音</strong>
+                <small>真实 WAV</small>
+              </span>
+            </div>
+            <div className="master-wave-lane">
+              <div className="master-waveform" aria-hidden="true">
+                {waveform.map((height, index) => (
+                  <i
+                    key={index}
+                    style={{ height: `${Math.max(5, height * 100)}%` }}
+                  />
+                ))}
+              </div>
+              <span
+                className="playhead"
+                aria-hidden="true"
+                style={{ left: `${progress}%` }}
+              />
+              <input
+                type="range"
+                min="0"
+                max={safeDuration || 1}
+                step="0.01"
+                value={Math.min(currentTime, safeDuration || 0)}
+                aria-label="在完整歌曲中定位"
+                onChange={(event) => onSeek(Number(event.currentTarget.value))}
+              />
+            </div>
+          </div>
+          <div className="master-time-axis" aria-hidden="true">
+            <span>00:00</span>
+            <span>{formatTime(safeDuration / 2)}</span>
+            <span>{formatTime(safeDuration)}</span>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="master-wave-empty">
+          <span aria-hidden="true">♪</span>
+          <div>
+            <strong>还没有真实歌曲</strong>
+            <p>先在右侧填写创意。生成并保存成功后，真实波形会出现在这里。</p>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
 
-type TrackRowProps = Omit<TimelineProps, "tracks"> & { track: MusicTrack };
-
-function TrackRow({
-  track,
-  selectedClips,
-  playhead,
-  onToggleClip,
-  onToggleTrack,
-  onAuditionClip,
-  auditioningClipId,
-  canAudition,
-}: TrackRowProps) {
-  return (
-    <>
-      <div className="track-header">
-        <span
-          className="track-color"
-          style={{ backgroundColor: track.color }}
-        />
-        <span className="track-name">{track.name}</span>
-        <span className="track-actions">
-          <button
-            type="button"
-            disabled
-            title="需要真实分轨音频"
-            onClick={() => onToggleTrack(track.id, "muted")}
-            aria-label={`${track.name}静音待真实分轨后开放`}
-            aria-pressed={track.muted}
-          >
-            M
-          </button>
-          <button
-            type="button"
-            disabled
-            title="需要真实分轨音频"
-            onClick={() => onToggleTrack(track.id, "solo")}
-            aria-label={`${track.name}独奏待真实分轨后开放`}
-            aria-pressed={track.solo}
-          >
-            S
-          </button>
-        </span>
-      </div>
-      <div className="track-lane" role="group" aria-label={`${track.name}音轨`}>
-        <div
-          className="playhead"
-          aria-hidden="true"
-          style={{ left: `${(playhead / PROJECT_DURATION) * 100}%` }}
-        />
-        {track.clips.map((clip) => {
-          const isSelected = selectedClips.includes(clip.id);
-          return (
-            <div
-              key={clip.id}
-              className="audio-clip-shell"
-              style={
-                {
-                  "left": `${(clip.start / PROJECT_DURATION) * 100}%`,
-                  "width": `${(clip.duration / PROJECT_DURATION) * 100}%`,
-                  "--track-color": track.color,
-                } as CSSProperties
-              }
-            >
-              <button
-                className={`audio-clip ${isSelected ? "is-selected" : ""}`}
-                type="button"
-                disabled
-                title="局部重绘还未接入真实模型任务"
-                onClick={() => onToggleClip(clip.id)}
-                aria-pressed={isSelected}
-                aria-label={`${clip.name}，${clip.duration} 秒，结构示意`}
-              >
-                <span className="clip-name">{clip.name}</span>
-                <span className="waveform" aria-hidden="true">
-                  {clip.emphasis.map((height, index) => (
-                    <i
-                      key={index}
-                      style={{ height: `${Math.round(height * 100)}%` }}
-                    />
-                  ))}
-                </span>
-              </button>
-              <button
-                className={`clip-audition ${auditioningClipId === clip.id ? "is-playing" : ""}`}
-                type="button"
-                disabled={!canAudition}
-                aria-label={
-                  canAudition
-                    ? `${auditioningClipId === clip.id ? "暂停" : "试听"}${clip.name}`
-                    : `${clip.name}还没有可试听音频`
-                }
-                onClick={() => void onAuditionClip(clip)}
-              >
-                {auditioningClipId === clip.id ? "Ⅱ" : "▶"}
-              </button>
-            </div>
-          );
-        })}
-      </div>
-    </>
-  );
+function formatTime(seconds: number) {
+  const safe = Math.max(0, Math.round(seconds));
+  return `${String(Math.floor(safe / 60)).padStart(2, "0")}:${String(
+    safe % 60,
+  ).padStart(2, "0")}`;
 }

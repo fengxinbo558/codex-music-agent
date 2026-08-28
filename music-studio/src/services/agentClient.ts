@@ -15,16 +15,17 @@ export async function planMusic(
     return await withTimeout(
       window.musicAgent.planMusic(request),
       AGENT_TIMEOUT_MS,
-      "Codex 规划时间较长，本次已切换到内置音乐规划器。",
+      "音乐制作助理规划时间较长，本次已切换到本机音乐规划器。",
     );
   } catch (error) {
     const fallback = createFallbackPlan(request);
-    const message = error instanceof Error ? error.message : "Codex 暂时不可用";
+    const message =
+      error instanceof Error ? error.message : "音乐制作助理暂时不可用";
     return {
       ...fallback,
-      warning: message.startsWith("Codex ")
+      warning: message.startsWith("音乐制作助理")
         ? message
-        : `Codex 连接失败：${message}`,
+        : `音乐制作助理连接失败：${message}`,
     };
   }
 }

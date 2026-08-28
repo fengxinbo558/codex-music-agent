@@ -281,7 +281,7 @@ function PlanSummary({ plan }: { plan: AgentPlanResponse }) {
     <div className="plan-summary" aria-live="polite">
       <div className="plan-title">
         <span className="plan-source">
-          {plan.source === "codex" ? "CODEX PLAN" : "LOCAL PLAN"}
+          {plan.source === "codex" ? "PRODUCER PLAN" : "LOCAL PLAN"}
         </span>
         <h3>{brief.title}</h3>
         <p>{brief.summary}</p>

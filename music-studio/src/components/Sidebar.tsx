@@ -14,6 +14,7 @@ type SidebarProps = {
   onNavigate: (view: AppView) => void;
   onNewProject: () => void;
   onSelectVersion: (versionId: string) => void;
+  onDeleteVersion: (versionId: string) => void;
 };
 
 const navItems: Array<{ id: AppView; label: string; glyph: string }> = [
@@ -32,6 +33,7 @@ export function Sidebar({
   onNavigate,
   onNewProject,
   onSelectVersion,
+  onDeleteVersion,
 }: SidebarProps) {
   return (
     <aside className="sidebar" aria-label="产品导航">
@@ -41,11 +43,14 @@ export function Sidebar({
         onClick={() => onNavigate("projects")}
       >
         <span className="brand-mark" aria-hidden="true">
-          C/
+          <svg viewBox="0 0 40 40" role="presentation">
+            <path d="M24 7v20.2a6 6 0 1 1-2.8-5.1V12.4l12-3.1v14.8a6 6 0 1 1-2.8-5.1V6.4L24 8Z" />
+            <path className="brand-wave" d="M5 31c3-5 5 5 8 0s5 5 8 0" />
+          </svg>
         </span>
         <span>
-          <strong>CODEX MUSIC</strong>
-          <small>AGENT STUDIO</small>
+          <strong>音乐创作台</strong>
+          <small>MUSIC WORKROOM</small>
         </span>
       </button>
       <button className="new-work-button" type="button" onClick={onNewProject}>
@@ -73,21 +78,33 @@ export function Sidebar({
           </div>
           <div className="version-list">
             {versions.map((version) => (
-              <button
+              <div
                 key={version.id}
                 className={`version-item ${selectedVersion === version.id ? "is-selected" : ""}`}
-                type="button"
-                onClick={() => onSelectVersion(version.id)}
-                aria-pressed={selectedVersion === version.id}
               >
-                <span className="version-index">
-                  {version.label.replace("版本 ", "")}
-                </span>
-                <span className="version-copy">
-                  <strong>{version.note}</strong>
-                  <small>{version.createdAt}</small>
-                </span>
-              </button>
+                <button
+                  className="version-select"
+                  type="button"
+                  onClick={() => onSelectVersion(version.id)}
+                  aria-pressed={selectedVersion === version.id}
+                >
+                  <span className="version-index">
+                    {version.label.replace("版本 ", "")}
+                  </span>
+                  <span className="version-copy">
+                    <strong>{version.note}</strong>
+                    <small>{version.createdAt}</small>
+                  </span>
+                </button>
+                <button
+                  className="version-delete"
+                  type="button"
+                  aria-label={`删除${version.label}`}
+                  onClick={() => onDeleteVersion(version.id)}
+                >
+                  ⌫
+                </button>
+              </div>
             ))}
           </div>
         </section>

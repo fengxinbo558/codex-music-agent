@@ -61,4 +61,40 @@ describe("LocalAudioStore", () => {
     expect((await store.listAssets())[0].favorite).toBe(true);
     expect(await (await store.getBlob(asset))?.text()).toBe("audio");
   });
+
+  it("deletes several assets in one transaction", async () => {
+    const store = new LocalAudioStore(
+      `audio-library-${crypto.randomUUID()}`,
+      indexedDB,
+    );
+    stores.push(store);
+    const firstBlob = new Blob(["one"], { type: "audio/wav" });
+    const secondBlob = new Blob(["two"], { type: "audio/wav" });
+    const first = createAudioAsset({
+      id: "asset-one",
+      name: "一.wav",
+      type: "generated",
+      blob: firstBlob,
+      durationSeconds: 1,
+      waveform: [0.2],
+      origin: "测试",
+    });
+    const second = createAudioAsset({
+      id: "asset-two",
+      name: "二.wav",
+      type: "generated",
+      blob: secondBlob,
+      durationSeconds: 1,
+      waveform: [0.3],
+      origin: "测试",
+    });
+    await store.save(first, firstBlob);
+    await store.save(second, secondBlob);
+
+    await store.deleteMany([first, second]);
+
+    expect(await store.listAssets()).toEqual([]);
+    expect(await store.getBlob(first)).toBeUndefined();
+    expect(await store.getBlob(second)).toBeUndefined();
+  });
 });

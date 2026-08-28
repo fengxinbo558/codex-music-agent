@@ -44,7 +44,7 @@ export function Modal({
       <div className="modal-surface">
         <header>
           <div>
-            <span className="section-kicker">CODEX MUSIC</span>
+            <span className="section-kicker">MUSIC WORKROOM</span>
             <h2 id="modal-title">{title}</h2>
             {description ? <p id="modal-description">{description}</p> : null}
           </div>

@@ -1463,6 +1463,336 @@
     grid-column: 1;
   }
 }
+
+/* Keep every desktop workspace inside one viewport. Each tall region owns its
+   own scroll so the transport, composer and version actions stay reachable. */
+@media (min-width: 761px) {
+  .app-shell.is-workspace,
+  .app-shell.is-studio {
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+    overflow: hidden;
+  }
+
+  .sidebar {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .sidebar-section {
+    overflow-y: auto;
+    scrollbar-color: #3a303e transparent;
+  }
+
+  .studio-column,
+  .agent-panel {
+    min-height: 0;
+  }
+}
+
+/* Truthful single-master workspace and reachable destructive actions */
+.brand-mark {
+  transform: none;
+}
+.brand-mark svg {
+  width: 25px;
+  height: 25px;
+  overflow: visible;
+  fill: currentColor;
+}
+.brand-mark .brand-wave {
+  fill: none;
+  stroke: var(--mint);
+  stroke-linecap: round;
+  stroke-width: 1.6;
+}
+.version-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  gap: 0;
+  padding: 0;
+  cursor: default;
+}
+.version-select {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 25px minmax(0, 1fr);
+  gap: 9px;
+  border: 0;
+  background: transparent;
+  padding: 9px 5px 9px 8px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.version-delete,
+.version-card-delete {
+  border: 0;
+  background: transparent;
+  color: #6f626c;
+  cursor: pointer;
+}
+.version-delete:hover,
+.version-card-delete:hover,
+.danger-text-action:hover {
+  color: var(--danger);
+}
+.version-card-delete {
+  position: absolute;
+  z-index: 2;
+  top: 6px;
+  right: 6px;
+  width: 24px;
+  height: 24px;
+}
+.version-cards article {
+  position: relative;
+}
+.version-card-select {
+  padding-right: 32px;
+}
+.danger-text-action,
+.danger-action {
+  border: 1px solid rgba(224, 125, 141, 0.34);
+  background: rgba(224, 125, 141, 0.06);
+  padding: 8px 11px;
+  color: #c98b95;
+  cursor: pointer;
+}
+.delete-confirm-body {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 22px 24px 4px;
+}
+.delete-confirm-body > span {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border: 1px solid rgba(224, 125, 141, 0.32);
+  color: var(--danger);
+}
+.delete-confirm-body p {
+  margin: 0;
+  color: #968b99;
+  font-size: 10px;
+  line-height: 1.7;
+}
+.delete-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 18px 24px 24px;
+}
+.stem-readiness {
+  border-left: 1px solid var(--line);
+  padding-left: 13px;
+  color: #736a78;
+  font-size: 8px;
+  white-space: nowrap;
+}
+.studio-column {
+  min-height: 0;
+}
+.studio-main {
+  overflow-x: hidden;
+  overflow-y: auto;
+  grid-template-rows: minmax(270px, auto) 178px minmax(245px, auto);
+  scrollbar-color: #3a303e transparent;
+}
+.timeline-panel {
+  min-height: 270px;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+.bottom-workspace {
+  min-height: 245px;
+  overflow: visible;
+}
+.agent-panel {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow-y: auto;
+  scrollbar-color: #3a303e transparent;
+}
+.agent-scroll {
+  min-height: auto;
+  overflow: visible;
+}
+.agent-composer {
+  position: sticky;
+  z-index: 8;
+  bottom: -18px;
+  max-height: none;
+  margin: 0 -21px -18px;
+  overflow: visible;
+  border-top: 1px solid var(--line-strong);
+  background: linear-gradient(180deg, rgba(23, 18, 26, 0.97), #17121a 18%);
+  padding: 15px 21px 18px;
+  box-shadow: 0 -18px 36px rgba(12, 9, 14, 0.28);
+}
+.master-timeline-scroll {
+  min-width: 620px;
+  transform-origin: left top;
+}
+.master-ruler {
+  position: relative;
+  height: 38px;
+  margin-left: 118px;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  background: rgba(255, 255, 255, 0.008);
+}
+.master-ruler span {
+  position: absolute;
+  inset-block: 0;
+  display: flex;
+  align-items: center;
+  border-left: 1px solid var(--line);
+  padding-left: 8px;
+  color: #736a78;
+  font-family: "DM Mono", monospace;
+  font-size: 8px;
+}
+.master-track {
+  display: grid;
+  min-height: 132px;
+  grid-template-columns: 118px minmax(0, 1fr);
+  border: 1px solid var(--line);
+}
+.master-track-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-right: 1px solid var(--line);
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.008);
+}
+.master-track-label > i {
+  width: 4px;
+  height: 52px;
+  border-radius: 4px;
+  background: linear-gradient(var(--amber), var(--violet));
+}
+.master-track-label > span {
+  display: grid;
+  gap: 5px;
+}
+.master-track-label strong {
+  color: #c7bdc9;
+  font-size: 10px;
+  font-weight: 550;
+}
+.master-track-label small {
+  color: var(--mint);
+  font-size: 7px;
+}
+.master-wave-lane {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, transparent, rgba(219, 163, 93, 0.025)),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent calc(12.5% - 1px),
+      rgba(255, 255, 255, 0.045) 12.5%
+    );
+}
+.master-waveform {
+  position: absolute;
+  inset: 18px 12px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.master-waveform i {
+  min-width: 1px;
+  flex: 1;
+  border-radius: 1px;
+  background: linear-gradient(180deg, #e3ba7f, #9d7faf);
+  opacity: 0.78;
+}
+.master-wave-lane input {
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: crosshair;
+}
+.master-time-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-left: 118px;
+  padding: 7px 1px 0;
+  color: #5f5765;
+  font-family: "DM Mono", monospace;
+  font-size: 7px;
+}
+.master-wave-empty {
+  display: grid;
+  min-height: 175px;
+  grid-template-columns: 50px minmax(0, 420px);
+  align-content: center;
+  justify-content: center;
+  gap: 16px;
+  border: 1px dashed rgba(169, 138, 209, 0.2);
+  background: rgba(169, 138, 209, 0.018);
+}
+.master-wave-empty > span {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  place-items: center;
+  border: 1px solid rgba(219, 163, 93, 0.34);
+  color: var(--amber);
+  font-size: 21px;
+}
+.master-wave-empty strong {
+  font-size: 12px;
+}
+.master-wave-empty p {
+  margin: 7px 0 0;
+  color: #736a78;
+  font-size: 9px;
+  line-height: 1.6;
+}
+
+@media (max-width: 760px) {
+  .studio-main {
+    display: grid;
+    min-height: 0;
+    overflow: visible;
+    grid-template-rows: auto auto auto;
+  }
+  .timeline-panel,
+  .bottom-workspace {
+    min-height: 0;
+  }
+  .agent-panel {
+    min-height: 0;
+    overflow: visible;
+  }
+  .agent-composer {
+    position: relative;
+    bottom: auto;
+    margin-bottom: 0;
+  }
+  .master-timeline-scroll {
+    min-width: 560px;
+  }
+  .stem-readiness {
+    grid-column: 2;
+    grid-row: 2;
+  }
+}
 .agent-lens {
   grid-template-columns: 27px minmax(0, 1fr) auto;
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AgentPanel } from "./components/AgentPanel";
 import { BottomWorkspace } from "./components/BottomWorkspace";
+import { DeleteConfirmDialog } from "./components/DeleteConfirmDialog";
 import { KaraokeLyrics } from "./components/KaraokeLyrics";
 import {
   CompareDialog,
@@ -18,7 +19,6 @@ import {
   initialLyrics,
   initialTracks,
   initialVersions,
-  PROJECT_DURATION,
 } from "./data/demoProject";
 import {
   initialAssets,
@@ -39,7 +39,6 @@ import { planMusic } from "./services/agentClient";
 import { analyzeAudioBlob } from "./services/audioAnalysis";
 import { masterAudioBlob } from "./services/audioMastering";
 import {
-  clipToAudioRange,
   createAudioAsset,
   visibleAudioAssets,
   versionsForStorage,
@@ -56,6 +55,7 @@ import {
   failActiveWorkflow,
   startWorkflow,
 } from "./services/musicWorkflow";
+import { planVersionDeletion } from "./services/versionDeletion";
 import type {
   AgentPlanResponse,
   AgentState,
@@ -68,7 +68,6 @@ import type {
   GenerationReferenceSettings,
   GenerationTask,
   MusicAsset,
-  MusicClip,
   MusicEngineStatus,
   MusicTrack,
   MusicWorkflow,
@@ -84,6 +83,11 @@ export default function App() {
     () => readStored("codex-music-view", "projects") as AppView,
   );
   const [dialog, setDialog] = useState<DialogKind>(null);
+  const [pendingDeletion, setPendingDeletion] = useState<
+    | { kind: "version"; id: string; name: string; detail: string }
+    | { kind: "asset"; id: string; name: string; detail: string }
+    | null
+  >(null);
   const [agentState, setAgentState] = useState<AgentState>("idle");
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState("等待你的想法");
@@ -146,9 +150,7 @@ export default function App() {
   const [remasteringVersionId, setRemasteringVersionId] = useState<
     string | null
   >(null);
-  const [auditioningClipId, setAuditioningClipId] = useState<string | null>(
-    null,
-  );
+  const [, setAuditioningClipId] = useState<string | null>(null);
   const [isListening, setIsListening] = useState(false);
   const [announcement, setAnnouncement] = useState("");
   const [toast, setToast] = useState("");
@@ -169,8 +171,6 @@ export default function App() {
       ),
     [selectedClips, tracks],
   );
-  const timelinePlayhead =
-    audioDuration > 0 ? (currentTime / audioDuration) * PROJECT_DURATION : 0;
   const agentSelectionNames =
     selectedNames.length > 0 ? selectedNames : operationScope;
   const visibleAssets = useMemo(() => visibleAudioAssets(assets), [assets]);
@@ -178,6 +178,13 @@ export default function App() {
     () => versions.find((version) => version.id === selectedVersion),
     [selectedVersion, versions],
   );
+  const currentTimelineAsset = useMemo(() => {
+    const assetId =
+      audioVariant === "source"
+        ? currentVersion?.mastering?.sourceAssetId
+        : currentVersion?.audioAssetId;
+    return assets.find((asset) => asset.id === assetId);
+  }, [assets, audioVariant, currentVersion]);
   const currentLyricCues = useMemo(
     () =>
       currentVersion?.lyricCues?.length
@@ -413,7 +420,7 @@ export default function App() {
     setWorkflow(startWorkflow(taskId));
     setProgress(6);
     setProgressLabel("读取当前工程与选中片段");
-    setAnnouncement("Codex 正在理解音乐想法");
+    setAnnouncement("音乐制作助理正在理解你的想法");
     setOperationScope(selectedNames);
     try {
       let generationReference: GenerationReferenceInput | undefined;
@@ -1170,79 +1177,6 @@ export default function App() {
       announce(error instanceof Error ? error.message : "这个素材无法播放。");
     }
   };
-  const auditionClip = async (clip: MusicClip) => {
-    const audio = audioRef.current;
-    if (auditioningClipId === clip.id && audio && !audio.paused) {
-      audio.pause();
-      segmentEndRef.current = null;
-      setAuditioningClipId(null);
-      return;
-    }
-    const version = versions.find((item) => item.id === selectedVersion);
-    const asset = assets.find((item) => item.id === version?.audioAssetId);
-    if (!asset) {
-      announce("当前版本还没有真实音频，生成后才能试听这个片段。");
-      return;
-    }
-    const range = clipToAudioRange(
-      clip,
-      asset.durationSeconds,
-      PROJECT_DURATION,
-    );
-    try {
-      await loadAudioAsset(asset, {
-        autoplay: true,
-        start: range.start,
-        end: range.end,
-        clipId: clip.id,
-      });
-      announce(`正在试听《${clip.name}》对应的混音片段`);
-    } catch (error) {
-      announce(error instanceof Error ? error.message : "片段试听没有启动。");
-    }
-  };
-  const toggleClip = (clipId: string) =>
-    setSelectedClips((items) =>
-      items.includes(clipId)
-        ? items.filter((item) => item !== clipId)
-        : [...items, clipId],
-    );
-  const toggleTrack = (trackId: string, field: "muted" | "solo") =>
-    setTracks((items) =>
-      items.map((track) =>
-        track.id === trackId ? { ...track, [field]: !track[field] } : track,
-      ),
-    );
-  const updateTrackMix = (
-    trackId: string,
-    field: "volume" | "pan",
-    value: number,
-  ) =>
-    setTracks((items) =>
-      items.map((track) =>
-        track.id === trackId ? { ...track, [field]: value } : track,
-      ),
-    );
-  const addTrack = () => {
-    const index = tracks.length + 1;
-    setTracks((items) => [
-      ...items,
-      {
-        id: `track-${Date.now()}`,
-        name: `新音轨 ${index}`,
-        kind: "instrument",
-        color: "#8b7f96",
-        muted: false,
-        solo: false,
-        locked: false,
-        volume: 72,
-        pan: 0,
-        clips: [],
-      },
-    ]);
-    announce("已添加一条空音轨");
-  };
-
   const toggleListening = () => {
     if (isListening) {
       recognitionRef.current?.stop();
@@ -1345,6 +1279,131 @@ export default function App() {
     announce("WAV 导出已开始");
   };
 
+  const requestVersionDeletion = (versionId: string) => {
+    const version = versions.find((item) => item.id === versionId);
+    if (!version) return;
+    const ownedCount = assets.filter(
+      (asset) => asset.versionId === versionId,
+    ).length;
+    setPendingDeletion({
+      kind: "version",
+      id: versionId,
+      name: `${projectTitle} · ${version.label}`,
+      detail: ownedCount
+        ? `将删除这个版本以及它独占的 ${ownedCount} 份本机音频。其他版本仍在使用的音频会保留。`
+        : "将删除这个版本记录。它没有独占的本机音频。",
+    });
+  };
+
+  const requestAssetDeletion = (asset: MusicAsset) => {
+    if (asset.versionId && versions.some((item) => item.id === asset.versionId)) {
+      requestVersionDeletion(asset.versionId);
+      return;
+    }
+    setPendingDeletion({
+      kind: "asset",
+      id: asset.id,
+      name: asset.name,
+      detail: "将从这台设备永久删除这份音频和波形数据。",
+    });
+  };
+
+  const confirmDeletion = async () => {
+    const pending = pendingDeletion;
+    if (!pending) return;
+    if (pending.kind === "asset") {
+      const asset = assets.find((item) => item.id === pending.id);
+      if (!asset) {
+        setPendingDeletion(null);
+        return;
+      }
+      try {
+        await localAudioStore.delete(asset);
+        if (playingAssetId === asset.id) clearCurrentAudio();
+        setAssets((items) => items.filter((item) => item.id !== asset.id));
+        if (referenceSettings.assetId === asset.id) {
+          setReferenceSettings((settings) => ({
+            ...settings,
+            mode: "none",
+            assetId: "",
+          }));
+        }
+        setPendingDeletion(null);
+        announce(`已删除《${asset.name}》`);
+      } catch (error) {
+        announce(error instanceof Error ? error.message : "删除没有完成。");
+      }
+      return;
+    }
+
+    const deletion = planVersionDeletion({
+      versionId: pending.id,
+      versions,
+      assets,
+    });
+    if (!deletion.target) {
+      setPendingDeletion(null);
+      return;
+    }
+    const deletedAssets = assets.filter((asset) =>
+      deletion.assetIds.includes(asset.id),
+    );
+    try {
+      await localAudioStore.deleteMany(deletedAssets);
+      const remainingAssets = assets.filter(
+        (asset) => !deletion.assetIds.includes(asset.id),
+      );
+      setAssets(remainingAssets);
+      setVersions(deletion.remainingVersions);
+      setLastGeneratedVersionIds((items) =>
+        items.filter((id) => id !== pending.id),
+      );
+      if (selectedVersion === pending.id) {
+        const nextVersion = deletion.remainingVersions[0];
+        clearCurrentAudio();
+        if (nextVersion) {
+          setSelectedVersion(nextVersion.id);
+          if (nextVersion.bpm) setBpm(nextVersion.bpm);
+          if (nextVersion.musicKey) setMusicKey(nextVersion.musicKey);
+          if (nextVersion.lyrics) setLyrics(nextVersion.lyrics);
+          if (nextVersion.preferences)
+            setGenerationPreferences(nextVersion.preferences);
+          const nextAsset = remainingAssets.find(
+            (asset) => asset.id === nextVersion.audioAssetId,
+          );
+          if (nextAsset) await loadAudioAsset(nextAsset);
+        } else {
+          setSelectedVersion("");
+        }
+      } else if (
+        playingAssetId &&
+        deletion.assetIds.includes(playingAssetId)
+      ) {
+        clearCurrentAudio();
+      }
+      setPendingDeletion(null);
+      announce(`已删除${deletion.target.label}，其他版本保持不变`);
+    } catch (error) {
+      announce(error instanceof Error ? error.message : "版本删除没有完成。");
+    }
+  };
+
+  const clearCurrentAudio = () => {
+    audioRef.current?.pause();
+    if (audioRef.current) {
+      audioRef.current.removeAttribute("src");
+      audioRef.current.load();
+    }
+    releaseActiveObjectUrl();
+    setAudioUrl(null);
+    setAudioDuration(0);
+    setCurrentTime(0);
+    setIsPlaying(false);
+    setPlayingAssetId(null);
+    setAuditioningClipId(null);
+    segmentEndRef.current = null;
+  };
+
   return (
     <>
       <div
@@ -1359,6 +1418,7 @@ export default function App() {
           onNavigate={setView}
           onNewProject={() => setDialog("new-project")}
           onSelectVersion={selectVersion}
+          onDeleteVersion={requestVersionDeletion}
         />
         {view === "projects" ? (
           <ProjectsView
@@ -1377,6 +1437,7 @@ export default function App() {
             onImportFiles={handleImportFiles}
             onTogglePlayback={toggleAssetPlayback}
             onToggleFavorite={toggleAssetFavorite}
+            onDeleteAsset={requestAssetDeletion}
             currentReferenceId={
               referenceSettings.mode === "none" ? "" : referenceSettings.assetId
             }
@@ -1418,26 +1479,19 @@ export default function App() {
               />
               <StudioToolbar
                 mode={generationMode}
-                hasSelection={selectedClips.length > 0}
+                hasSelection={false}
                 zoom={timelineZoom}
                 onModeChange={setGenerationMode}
                 onZoomChange={setTimelineZoom}
-                onAddTrack={addTrack}
               />
               <main className="studio-main">
                 <Timeline
-                  tracks={tracks}
-                  selectedClips={selectedClips}
-                  playhead={timelinePlayhead}
+                  waveform={currentTimelineAsset?.waveform ?? []}
+                  duration={audioDuration}
+                  currentTime={currentTime}
+                  hasAudio={Boolean(audioUrl && currentTimelineAsset)}
                   zoom={timelineZoom}
-                  onToggleClip={toggleClip}
-                  onToggleTrack={toggleTrack}
-                  onAuditionClip={auditionClip}
-                  auditioningClipId={auditioningClipId}
-                  canAudition={Boolean(
-                    versions.find((item) => item.id === selectedVersion)
-                      ?.audioAssetId,
-                  )}
+                  onSeek={handleSeek}
                 />
                 <KaraokeLyrics
                   cues={currentLyricCues}
@@ -1452,13 +1506,12 @@ export default function App() {
                   lyrics={lyrics}
                   bpm={bpm}
                   musicKey={musicKey}
-                  tracks={tracks}
                   versions={versions}
                   selectedVersion={selectedVersion}
                   tasks={tasks}
                   onLyricsChange={setLyrics}
-                  onTrackMixChange={updateTrackMix}
                   onSelectVersion={selectVersion}
+                  onDeleteVersion={requestVersionDeletion}
                   audioVariant={audioVariant}
                   remasteringVersionId={remasteringVersionId}
                   onSelectAudioVariant={selectAudioVariant}
@@ -1575,6 +1628,14 @@ export default function App() {
         <NotificationsDialog
           musicEngineStatus={musicEngineStatus}
           onClose={() => setDialog(null)}
+        />
+      ) : null}
+      {pendingDeletion ? (
+        <DeleteConfirmDialog
+          itemName={pendingDeletion.name}
+          detail={pendingDeletion.detail}
+          onCancel={() => setPendingDeletion(null)}
+          onConfirm={confirmDeletion}
         />
       ) : null}
     </>

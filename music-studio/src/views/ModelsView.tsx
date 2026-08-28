@@ -68,7 +68,7 @@ export function ModelsView({
         </div>
         <i aria-hidden="true">→</i>
         <div className="architecture-node node-agent">
-          <span>Codex Agent</span>
+          <span>音乐制作助理</span>
           <small>理解 · 计划 · 调用工具</small>
         </div>
         <i aria-hidden="true">→</i>
@@ -144,7 +144,7 @@ export function ModelsView({
       <section className="capability-matrix" aria-label="能力分工表">
         <div>
           <span>能力</span>
-          <span>Codex</span>
+          <span>制作助理</span>
           <span>演示引擎</span>
           <span>ACE-Step</span>
           <span>Demucs</span>

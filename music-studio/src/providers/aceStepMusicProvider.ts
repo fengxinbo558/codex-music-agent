@@ -9,11 +9,7 @@ import { normalizeGenerationPreferences } from "../data/generationPreferences";
 import { tonePrompt } from "../data/toneProfiles";
 import { vocalDeliveryPrompt } from "../data/vocalDelivery";
 import { vocalClarityPrompt } from "../data/vocalClarity";
-import {
-  createGeneratedTracks,
-  type GenerationProgress,
-  type MusicProvider,
-} from "./mockMusicProvider";
+import type { GenerationProgress, MusicProvider } from "./mockMusicProvider";
 
 const ACE_STEP_ORIGIN = "http://127.0.0.1:8001";
 const HEALTH_TIMEOUT_MS = 1_800;
@@ -171,7 +167,7 @@ async function generateWithAceStep(
             url: URL.createObjectURL(audioBlob),
             blob: audioBlob,
             duration: Number(detail.metas?.duration) || preferences.duration,
-            tracks: createGeneratedTracks(brief),
+            tracks: [],
             provider: "ACE-Step 1.5（本地）",
             costLabel: "本机生成 · 不产生按次 API 费用",
             seed: seedForResult(detail.seed_value, index),

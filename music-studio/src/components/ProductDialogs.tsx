@@ -358,7 +358,7 @@ export function NotificationsDialog({
         <li>
           <i className="is-ready" />
           <span>
-            <strong>Codex Agent 连接正常</strong>
+            <strong>音乐制作助理连接正常</strong>
             <small>可以读取工程并制定制作计划 · 今天</small>
           </span>
         </li>

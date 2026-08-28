@@ -58,7 +58,7 @@ export const mockMusicProvider: MusicProvider = {
         url,
         blob,
         duration: DURATION_SECONDS,
-        tracks: createGeneratedTracks(brief),
+        tracks: [],
         provider: "Prototype Synth（链路演示）",
         costLabel: "浏览器本地演示 · 不产生按次 API 费用",
         warning:

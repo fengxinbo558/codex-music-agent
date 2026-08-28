@@ -56,13 +56,20 @@ export class LocalAudioStore {
   }
 
   async delete(asset: Pick<MusicAsset, "id" | "localBlobKey">) {
+    await this.deleteMany([asset]);
+  }
+
+  async deleteMany(assets: Array<Pick<MusicAsset, "id" | "localBlobKey">>) {
+    if (!assets.length) return;
     const database = await this.open();
     const transaction = database.transaction(
       [ASSET_STORE, BLOB_STORE],
       "readwrite",
     );
-    transaction.objectStore(ASSET_STORE).delete(asset.id);
-    transaction.objectStore(BLOB_STORE).delete(asset.localBlobKey);
+    for (const asset of assets) {
+      transaction.objectStore(ASSET_STORE).delete(asset.id);
+      transaction.objectStore(BLOB_STORE).delete(asset.localBlobKey);
+    }
     await transactionDone(transaction);
   }
 

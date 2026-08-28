@@ -5,7 +5,6 @@ import { ToneVersionControls } from "./ToneVersionControls";
 import type {
   AudioVariant,
   GenerationTask,
-  MusicTrack,
   ProjectVersion,
   StudioBottomTab,
 } from "../types";
@@ -14,17 +13,12 @@ type BottomWorkspaceProps = {
   lyrics: string[];
   bpm: number;
   musicKey: string;
-  tracks: MusicTrack[];
   versions: ProjectVersion[];
   selectedVersion: string;
   tasks: GenerationTask[];
   onLyricsChange: (lyrics: string[]) => void;
-  onTrackMixChange: (
-    trackId: string,
-    field: "volume" | "pan",
-    value: number,
-  ) => void;
   onSelectVersion: (versionId: string) => void;
+  onDeleteVersion: (versionId: string) => void;
   audioVariant: AudioVariant;
   remasteringVersionId: string | null;
   onSelectAudioVariant: (variant: AudioVariant) => void;
@@ -43,13 +37,12 @@ export function BottomWorkspace({
   lyrics,
   bpm,
   musicKey,
-  tracks,
   versions,
   selectedVersion,
   tasks,
   onLyricsChange,
-  onTrackMixChange,
   onSelectVersion,
+  onDeleteVersion,
   audioVariant,
   remasteringVersionId,
   onSelectAudioVariant,
@@ -167,6 +160,14 @@ export function BottomWorkspace({
                   key={version.id}
                   className={isSelected ? "is-selected" : ""}
                 >
+                  <button
+                    className="version-card-delete"
+                    type="button"
+                    aria-label={`删除${version.label}`}
+                    onClick={() => onDeleteVersion(version.id)}
+                  >
+                    ⌫
+                  </button>
                   <button
                     className="version-card-select"
                     type="button"

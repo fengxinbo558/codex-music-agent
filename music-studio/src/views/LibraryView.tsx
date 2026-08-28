@@ -11,6 +11,7 @@ type LibraryViewProps = {
   onImportFiles: (files: File[]) => void | Promise<void>;
   onTogglePlayback: (asset: MusicAsset) => void | Promise<void>;
   onToggleFavorite: (asset: MusicAsset) => void | Promise<void>;
+  onDeleteAsset: (asset: MusicAsset) => void;
   currentReferenceId: string;
   onUseAsReference: (asset: MusicAsset) => void;
   onNotifications: () => void;
@@ -36,6 +37,7 @@ export function LibraryView({
   onImportFiles,
   onTogglePlayback,
   onToggleFavorite,
+  onDeleteAsset,
   currentReferenceId,
   onUseAsReference,
   onNotifications,
@@ -282,6 +284,13 @@ export function LibraryView({
                   onClick={() => void onToggleFavorite(selected)}
                 >
                   {selected.favorite ? "取消收藏" : "收藏素材"}
+                </button>
+                <button
+                  className="danger-text-action"
+                  type="button"
+                  onClick={() => onDeleteAsset(selected)}
+                >
+                  删除本机音频
                 </button>
               </div>
               <div className="analysis-note">

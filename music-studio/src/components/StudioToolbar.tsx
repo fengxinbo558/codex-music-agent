@@ -6,7 +6,6 @@ type StudioToolbarProps = {
   zoom: number;
   onModeChange: (mode: GenerationMode) => void;
   onZoomChange: (zoom: number) => void;
-  onAddTrack: () => void;
 };
 
 const modes: Array<{ id: GenerationMode; label: string; note: string }> = [
@@ -22,7 +21,6 @@ export function StudioToolbar({
   zoom,
   onModeChange,
   onZoomChange,
-  onAddTrack,
 }: StudioToolbarProps) {
   const selectedMode = modes.find((item) => item.id === mode) ?? modes[0];
   return (
@@ -54,7 +52,7 @@ export function StudioToolbar({
         </span>
         <div>
           <small>当前范围</small>
-          <strong>{hasSelection ? "结构片段预览" : "整首作品"}</strong>
+          <strong>{hasSelection ? "已选择真实范围" : "整首作品"}</strong>
         </div>
       </div>
       <div className="toolbar-spacer" />
@@ -71,15 +69,7 @@ export function StudioToolbar({
         <span aria-hidden="true">＋</span>
         <output>{zoom}%</output>
       </label>
-      <button
-        className="secondary-action add-track-button"
-        type="button"
-        disabled
-        title="当前返回的是混合 WAV；接通真实分轨后才可添加音轨"
-        onClick={onAddTrack}
-      >
-        ＋ 添加音轨 · 待分轨
-      </button>
+      <span className="stem-readiness">完整混音 · 分轨未准备</span>
     </div>
   );
 }

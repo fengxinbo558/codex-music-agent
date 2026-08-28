@@ -86,7 +86,7 @@ export function ProjectsView({
         <div>
           <i className="is-ready" />
           <span>
-            <strong>Codex Agent</strong>
+            <strong>音乐制作助理</strong>
             <small>已连接 · 负责理解与调度</small>
           </span>
         </div>
