@@ -1,0 +1,19 @@
+packages:
+  - codex-cli
+  - codex-rs/responses-api-proxy/npm
+  - music-studio
+  - sdk/typescript
+
+minimumReleaseAge: 10080
+minimumReleaseAgeExclude: []
+
+blockExoticSubdeps: true
+strictDepBuilds: true
+trustPolicy: no-downgrade
+trustPolicyIgnoreAfter: 10080
+trustPolicyExclude: []
+allowBuilds:
+  # Keep the official MCP entry and allow only the desktop toolchain's native helpers.
+  "@modelcontextprotocol/conformance@https://codeload.github.com/modelcontextprotocol/conformance/tar.gz/49103de6ed70804e940637bf3e9e29e4a3f54e64": true
+  electron: true
+  esbuild: true

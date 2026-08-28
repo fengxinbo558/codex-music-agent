@@ -1,0 +1,29 @@
+{
+  "name": "@codex-music/studio",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.mjs",
+  "scripts": {
+    "dev": "vite",
+    "desktop": "pnpm --filter @openai/codex-sdk build && node scripts/dev-desktop.mjs",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@openai/codex-sdk": "workspace:*",
+    "react": "19.2.0",
+    "react-dom": "19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.18",
+    "@types/react": "19.2.7",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.1",
+    "electron": "43.4.1",
+    "fake-indexeddb": "^6.2.5",
+    "typescript": "5.9.3",
+    "vite": "7.2.4",
+    "vitest": "4.0.18"
+  }
+}
