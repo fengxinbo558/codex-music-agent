@@ -3,12 +3,15 @@ import type {
   GenerationPreferences,
   LyricsMode,
   ToneProfile,
+  VocalDelivery,
   VocalStyle,
 } from "../types";
+import { VOCAL_DELIVERY_PROFILES } from "./vocalDelivery";
 
 export const DEFAULT_GENERATION_PREFERENCES: GenerationPreferences = {
   duration: 30,
   vocalStyle: "female",
+  vocalDelivery: "natural",
   lyricsMode: "auto",
   creativity: "balanced",
   variantCount: 1,
@@ -19,6 +22,12 @@ export const VOCAL_STYLE_LABELS: Record<VocalStyle, string> = {
   female: "女声",
   male: "男声",
   instrumental: "纯音乐",
+};
+
+export const VOCAL_DELIVERY_LABELS: Record<VocalDelivery, string> = {
+  natural: VOCAL_DELIVERY_PROFILES.natural.label,
+  angryRock: VOCAL_DELIVERY_PROFILES.angryRock.label,
+  extremeScream: VOCAL_DELIVERY_PROFILES.extremeScream.label,
 };
 
 export const LYRICS_MODE_LABELS: Record<LyricsMode, string> = {
@@ -49,6 +58,9 @@ export function summarizePreferences(preferences: GenerationPreferences) {
     `${preferences.duration} 秒`,
     VOCAL_STYLE_LABELS[preferences.vocalStyle],
     preferences.vocalStyle === "instrumental"
+      ? "无人声"
+      : VOCAL_DELIVERY_LABELS[preferences.vocalDelivery],
+    preferences.vocalStyle === "instrumental"
       ? "不演唱歌词"
       : LYRICS_MODE_LABELS[preferences.lyricsMode],
     CREATIVITY_LABELS[preferences.creativity],
@@ -64,4 +76,38 @@ export function estimateGenerationTime(preferences: GenerationPreferences) {
   return preferences.variantCount === 1
     ? `大约 ${base} 分钟`
     : `大约 ${Math.max(2, max - 1)}–${max + 1} 分钟`;
+}
+
+export function getContentFitNotice(
+  preferences: GenerationPreferences,
+  promptCharacters: number,
+  currentLyricsCharacters: number,
+) {
+  if (preferences.vocalStyle === "instrumental") return null;
+  const characters =
+    preferences.lyricsMode === "current"
+      ? currentLyricsCharacters
+      : promptCharacters;
+  const comfortableCharacters = {
+    30: 90,
+    60: 180,
+    90: 270,
+  }[preferences.duration];
+  if (characters <= comfortableCharacters) return null;
+
+  const suggestedDuration =
+    preferences.duration === 30
+      ? characters <= 180
+        ? 60
+        : 90
+      : preferences.duration === 60
+        ? 90
+        : null;
+  const action = suggestedDuration
+    ? `建议改成 ${suggestedDuration} 秒。`
+    : "建议精简文字，或分成两次续写。";
+
+  return preferences.lyricsMode === "current"
+    ? `当前歌词较长，${preferences.duration} 秒可能唱不完整。${action}`
+    : `这段文案较长，AI 会提炼成歌词，不会逐字唱完。${action}`;
 }

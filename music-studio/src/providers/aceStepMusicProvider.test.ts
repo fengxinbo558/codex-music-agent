@@ -75,6 +75,7 @@ describe("getAceStepStatus", () => {
       ...DEFAULT_GENERATION_PREFERENCES,
       duration: 60,
       vocalStyle: "instrumental",
+      vocalDelivery: "extremeScream",
       lyricsMode: "current",
       creativity: "surprise",
       variantCount: 2,
@@ -93,6 +94,8 @@ describe("getAceStepStatus", () => {
     expect(request.prompt).not.toContain("emotionally nuanced vocal");
     expect(request.lm_negative_prompt).toContain("harsh upper mids");
     expect(request.lm_negative_prompt).not.toContain("sibilance");
+    expect(request.prompt).not.toContain("scream");
+    expect(request.lm_negative_prompt).not.toContain("screech");
   });
 
   it("adds human vocal expression and anti-harshness guidance by default", () => {
@@ -103,6 +106,33 @@ describe("getAceStepStatus", () => {
     expect(request.lm_negative_prompt).toContain("piercing sibilance");
     expect(request.lm_negative_prompt).toContain("robotic phrasing");
     expect(request.lm_negative_prompt).toContain("over-compressed dynamics");
+  });
+
+  it("adds controlled angry-rock performance and anti-harshness guidance", () => {
+    const request = createAceStepRequest(brief, {
+      ...DEFAULT_GENERATION_PREFERENCES,
+      vocalStyle: "male",
+      vocalDelivery: "angryRock",
+    });
+
+    expect(request.prompt).toContain("controlled rasp and vocal fry");
+    expect(request.prompt).toContain("clear lyric articulation");
+    expect(request.prompt).toContain("distorted electric guitars");
+    expect(request.lm_negative_prompt).toContain("thin shrill screaming");
+    expect(request.lm_negative_prompt).toContain("digital clipping");
+  });
+
+  it("adds extreme scream and growl without allowing piercing digital noise", () => {
+    const request = createAceStepRequest(brief, {
+      ...DEFAULT_GENERATION_PREFERENCES,
+      vocalDelivery: "extremeScream",
+    });
+
+    expect(request.prompt).toContain("controlled scream and deep growl");
+    expect(request.prompt).toContain("short shouted hooks");
+    expect(request.lm_negative_prompt).toContain("thin high-pitched screech");
+    expect(request.lm_negative_prompt).toContain("piercing sustained highs");
+    expect(request.lm_negative_prompt).toContain("digital clipping");
   });
 
   it("uploads style references through the real reference-audio field", () => {

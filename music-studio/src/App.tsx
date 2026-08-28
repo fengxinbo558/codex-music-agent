@@ -430,6 +430,7 @@ export default function App() {
       const nextPlan = await planMusic({
         projectId: "rain-before-it-stops",
         prompt: `${modePrompt(generationMode)}${referenceDirection}${cleanPrompt}`,
+        vocalDelivery: preferences.vocalDelivery,
         selection: selectedNames,
         currentProject: { bpm, key: musicKey, selectedVersion },
       });
@@ -1323,6 +1324,7 @@ export default function App() {
               progressLabel={progressLabel}
               plan={plan}
               prompt={prompt}
+              lyricsCharacterCount={lyrics.join("").replace(/\s/g, "").length}
               selectedNames={agentSelectionNames}
               isListening={isListening}
               voiceAvailable={voiceAvailable}

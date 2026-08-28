@@ -21,6 +21,7 @@ type AgentPanelProps = {
   progressLabel: string;
   plan: AgentPlanResponse | null;
   prompt: string;
+  lyricsCharacterCount: number;
   selectedNames: string[];
   isListening: boolean;
   voiceAvailable: boolean;
@@ -62,6 +63,7 @@ export function AgentPanel({
   progressLabel,
   plan,
   prompt,
+  lyricsCharacterCount,
   selectedNames,
   isListening,
   voiceAvailable,
@@ -245,6 +247,8 @@ export function AgentPanel({
         <GenerationSettings
           preferences={preferences}
           disabled={isBusy}
+          promptCharacters={prompt.replace(/\s/g, "").length}
+          currentLyricsCharacters={lyricsCharacterCount}
           onChange={onPreferencesChange}
         />
         <ReferenceAudioControls

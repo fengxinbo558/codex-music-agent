@@ -7,6 +7,7 @@ import type {
 } from "../types";
 import { normalizeGenerationPreferences } from "../data/generationPreferences";
 import { tonePrompt } from "../data/toneProfiles";
+import { vocalDeliveryPrompt } from "../data/vocalDelivery";
 import {
   createGeneratedTracks,
   mockMusicProvider,
@@ -208,10 +209,20 @@ export function createAceStepRequest(
     resolvedPreferences.toneProfile,
     resolvedPreferences.vocalStyle,
   );
+  const delivery = vocalDeliveryPrompt(
+    resolvedPreferences.vocalDelivery,
+    resolvedPreferences.vocalStyle,
+  );
 
   return {
-    prompt: createMusicPrompt(brief, resolvedPreferences, tone.positive),
-    lm_negative_prompt: tone.negative,
+    prompt: createMusicPrompt(
+      brief,
+      resolvedPreferences,
+      [tone.positive, delivery.positive].filter(Boolean).join(", "),
+    ),
+    lm_negative_prompt: [tone.negative, delivery.negative]
+      .filter(Boolean)
+      .join(", "),
     lyrics:
       resolvedPreferences.vocalStyle === "instrumental"
         ? ""

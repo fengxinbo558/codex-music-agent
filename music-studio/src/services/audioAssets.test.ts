@@ -107,6 +107,9 @@ describe("audio assets", () => {
     expect(versionsFromStorage([version])[0].preferences?.toneProfile).toBe(
       "warm",
     );
+    expect(versionsFromStorage([version])[0].preferences?.vocalDelivery).toBe(
+      "natural",
+    );
     expect(visibleAudioAssets([internal, visible])).toEqual([visible]);
   });
 });

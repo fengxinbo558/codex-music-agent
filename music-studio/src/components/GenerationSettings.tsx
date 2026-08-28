@@ -3,29 +3,36 @@ import { useState } from "react";
 import {
   CREATIVITY_LABELS,
   estimateGenerationTime,
+  getContentFitNotice,
   LYRICS_MODE_LABELS,
   summarizePreferences,
   VOCAL_STYLE_LABELS,
 } from "../data/generationPreferences";
 import { TONE_PROFILES } from "../data/toneProfiles";
+import { VOCAL_DELIVERY_PROFILES } from "../data/vocalDelivery";
 import type {
   CreativityLevel,
   GenerationDuration,
   GenerationPreferences,
   LyricsMode,
   ToneProfile,
+  VocalDelivery,
   VocalStyle,
 } from "../types";
 
 type GenerationSettingsProps = {
   preferences: GenerationPreferences;
   disabled: boolean;
+  promptCharacters: number;
+  currentLyricsCharacters: number;
   onChange: (preferences: GenerationPreferences) => void;
 };
 
 export function GenerationSettings({
   preferences,
   disabled,
+  promptCharacters,
+  currentLyricsCharacters,
   onChange,
 }: GenerationSettingsProps) {
   const [expanded, setExpanded] = useState(false);
@@ -33,6 +40,11 @@ export function GenerationSettings({
     key: Key,
     value: GenerationPreferences[Key],
   ) => onChange({ ...preferences, [key]: value });
+  const contentFitNotice = getContentFitNotice(
+    preferences,
+    promptCharacters,
+    currentLyricsCharacters,
+  );
 
   return (
     <section className="generation-settings" aria-label="歌曲生成设置">
@@ -79,6 +91,11 @@ export function GenerationSettings({
             disabled={disabled}
             onChange={(value) => update("vocalStyle", value)}
           />
+          <VocalDeliveryChoice
+            value={preferences.vocalDelivery}
+            disabled={disabled || preferences.vocalStyle === "instrumental"}
+            onChange={(value) => update("vocalDelivery", value)}
+          />
           <ChoiceGroup<LyricsMode>
             legend="歌词"
             name="lyrics-mode"
@@ -120,7 +137,52 @@ export function GenerationSettings({
           </p>
         </div>
       ) : null}
+      {contentFitNotice ? (
+        <p className="content-fit-notice" role="status">
+          <span aria-hidden="true">!</span>
+          {contentFitNotice}
+        </p>
+      ) : null}
     </section>
+  );
+}
+
+function VocalDeliveryChoice({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: VocalDelivery;
+  disabled: boolean;
+  onChange: (value: VocalDelivery) => void;
+}) {
+  return (
+    <fieldset className="settings-choice vocal-delivery-choice">
+      <legend>演唱状态</legend>
+      <div>
+        {Object.entries(VOCAL_DELIVERY_PROFILES).map(
+          ([delivery, definition]) => (
+            <label
+              key={delivery}
+              className={value === delivery ? "is-selected" : ""}
+            >
+              <input
+                type="radio"
+                name="vocal-delivery"
+                value={delivery}
+                checked={value === delivery}
+                disabled={disabled}
+                onChange={() => onChange(delivery as VocalDelivery)}
+              />
+              <span>
+                <strong>{definition.label}</strong>
+                <small>{definition.description}</small>
+              </span>
+            </label>
+          ),
+        )}
+      </div>
+    </fieldset>
   );
 }
 

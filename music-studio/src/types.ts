@@ -19,6 +19,8 @@ export type GenerationDuration = 30 | 60 | 90;
 
 export type VocalStyle = "female" | "male" | "instrumental";
 
+export type VocalDelivery = "natural" | "angryRock" | "extremeScream";
+
 export type LyricsMode = "auto" | "current";
 
 export type CreativityLevel = "stable" | "balanced" | "surprise";
@@ -44,6 +46,7 @@ export type GenerationReferenceInput = {
 export type GenerationPreferences = {
   duration: GenerationDuration;
   vocalStyle: VocalStyle;
+  vocalDelivery: VocalDelivery;
   lyricsMode: LyricsMode;
   creativity: CreativityLevel;
   variantCount: 1 | 2;
@@ -201,6 +204,7 @@ export type AgentPlanResponse = {
 export type PlanMusicRequest = {
   projectId: string;
   prompt: string;
+  vocalDelivery: VocalDelivery;
   selection: string[];
   currentProject: {
     bpm: number;
