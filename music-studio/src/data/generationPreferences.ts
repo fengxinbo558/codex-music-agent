@@ -1,6 +1,7 @@
 import type {
   CreativityLevel,
   GenerationPreferences,
+  LyricClarity,
   LyricsMode,
   ToneProfile,
   VocalDelivery,
@@ -12,6 +13,7 @@ export const DEFAULT_GENERATION_PREFERENCES: GenerationPreferences = {
   duration: 30,
   vocalStyle: "female",
   vocalDelivery: "natural",
+  lyricClarity: "clear",
   lyricsMode: "auto",
   creativity: "balanced",
   variantCount: 1,
@@ -28,6 +30,11 @@ export const VOCAL_DELIVERY_LABELS: Record<VocalDelivery, string> = {
   natural: VOCAL_DELIVERY_PROFILES.natural.label,
   angryRock: VOCAL_DELIVERY_PROFILES.angryRock.label,
   extremeScream: VOCAL_DELIVERY_PROFILES.extremeScream.label,
+};
+
+export const LYRIC_CLARITY_LABELS: Record<LyricClarity, string> = {
+  natural: "自然融合",
+  clear: "歌词清晰优先",
 };
 
 export const LYRICS_MODE_LABELS: Record<LyricsMode, string> = {
@@ -61,12 +68,17 @@ export function summarizePreferences(preferences: GenerationPreferences) {
       ? "无人声"
       : VOCAL_DELIVERY_LABELS[preferences.vocalDelivery],
     preferences.vocalStyle === "instrumental"
+      ? null
+      : LYRIC_CLARITY_LABELS[preferences.lyricClarity],
+    preferences.vocalStyle === "instrumental"
       ? "不演唱歌词"
       : LYRICS_MODE_LABELS[preferences.lyricsMode],
     CREATIVITY_LABELS[preferences.creativity],
     TONE_PROFILE_LABELS[preferences.toneProfile],
     `${preferences.variantCount} 个版本`,
-  ].join(" · ");
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 export function estimateGenerationTime(preferences: GenerationPreferences) {

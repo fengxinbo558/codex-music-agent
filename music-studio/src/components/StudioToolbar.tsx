@@ -36,11 +36,15 @@ export function StudioToolbar({
           }
         >
           <option value="full">整首生成</option>
-          <option value="region" disabled={!hasSelection}>
-            局部重绘{hasSelection ? "" : "（先选片段）"}
+          <option value="region" disabled>
+            局部重绘（待接通）
           </option>
-          <option value="extend">续写延展</option>
-          <option value="rearrange">重新编曲</option>
+          <option value="extend" disabled>
+            续写延展（待接通）
+          </option>
+          <option value="rearrange" disabled>
+            重新编曲（请使用参考音频）
+          </option>
         </select>
         <small>{selectedMode.note}</small>
       </label>
@@ -50,7 +54,7 @@ export function StudioToolbar({
         </span>
         <div>
           <small>当前范围</small>
-          <strong>{hasSelection ? "已选时间线片段" : "整首作品"}</strong>
+          <strong>{hasSelection ? "结构片段预览" : "整首作品"}</strong>
         </div>
       </div>
       <div className="toolbar-spacer" />
@@ -70,9 +74,11 @@ export function StudioToolbar({
       <button
         className="secondary-action add-track-button"
         type="button"
+        disabled
+        title="当前返回的是混合 WAV；接通真实分轨后才可添加音轨"
         onClick={onAddTrack}
       >
-        ＋ 添加音轨
+        ＋ 添加音轨 · 待分轨
       </button>
     </div>
   );

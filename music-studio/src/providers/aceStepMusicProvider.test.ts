@@ -106,6 +106,25 @@ describe("getAceStepStatus", () => {
     expect(request.lm_negative_prompt).toContain("piercing sibilance");
     expect(request.lm_negative_prompt).toContain("robotic phrasing");
     expect(request.lm_negative_prompt).toContain("over-compressed dynamics");
+    expect(request.prompt).toContain("precise Mandarin Chinese initials");
+    expect(request.prompt).toContain("intimate female vocal");
+    expect(request.lm_negative_prompt).toContain("mumbled or swallowed lyrics");
+    expect(request).toMatchObject({
+      vocal_language: "zh",
+      shift: 3,
+      lm_cfg_scale: 2.4,
+    });
+  });
+
+  it("keeps natural lyric blending available as a real model setting", () => {
+    const request = createAceStepRequest(brief, {
+      ...DEFAULT_GENERATION_PREFERENCES,
+      lyricClarity: "natural",
+    });
+
+    expect(request.prompt).toContain("natural vocal balance");
+    expect(request.prompt).not.toContain("precise Mandarin Chinese initials");
+    expect(request).toMatchObject({ shift: 1, lm_cfg_scale: 2 });
   });
 
   it("adds controlled angry-rock performance and anti-harshness guidance", () => {
@@ -183,26 +202,16 @@ describe("getAceStepStatus", () => {
     expect(form.get("ref_audio")).toBeNull();
   });
 
-  it("falls back to one clearly labelled preview when ACE-Step is offline", async () => {
-    vi.useFakeTimers();
+  it("does not create a fake song when ACE-Step is offline", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("offline")));
-    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:offline-preview");
 
-    const generation = automaticMusicProvider.generate(
-      brief,
-      { ...DEFAULT_GENERATION_PREFERENCES, duration: 90, variantCount: 2 },
-      () => undefined,
-    );
-    await vi.advanceTimersByTimeAsync(2_000);
-    const results = await generation;
-
-    expect(results).toHaveLength(1);
-    expect(results[0]).toMatchObject({
-      url: "blob:offline-preview",
-      duration: 16,
-      provider: "Prototype Synth（链路演示）",
-    });
-    expect(results[0].warning).toContain("固定为 16 秒、1 个版本");
+    await expect(
+      automaticMusicProvider.generate(
+        brief,
+        { ...DEFAULT_GENERATION_PREFERENCES, duration: 90, variantCount: 2 },
+        () => undefined,
+      ),
+    ).rejects.toThrow("本次没有创建歌曲");
   });
 
   it("submits a real task, polls it, and returns the generated audio", async () => {

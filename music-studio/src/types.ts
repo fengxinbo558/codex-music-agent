@@ -21,6 +21,8 @@ export type VocalStyle = "female" | "male" | "instrumental";
 
 export type VocalDelivery = "natural" | "angryRock" | "extremeScream";
 
+export type LyricClarity = "natural" | "clear";
+
 export type LyricsMode = "auto" | "current";
 
 export type CreativityLevel = "stable" | "balanced" | "surprise";
@@ -47,10 +49,47 @@ export type GenerationPreferences = {
   duration: GenerationDuration;
   vocalStyle: VocalStyle;
   vocalDelivery: VocalDelivery;
+  lyricClarity: LyricClarity;
   lyricsMode: LyricsMode;
   creativity: CreativityLevel;
   variantCount: 1 | 2;
   toneProfile: ToneProfile;
+};
+
+export type LyricCue = {
+  id: string;
+  text: string;
+  start: number;
+  end: number;
+  source: "estimated" | "aligned";
+};
+
+export type WorkflowStepId =
+  | "director"
+  | "lyrics"
+  | "arrangement"
+  | "vocal"
+  | "model"
+  | "master"
+  | "lyricTiming"
+  | "quality";
+
+export type WorkflowStepStatus = "pending" | "active" | "complete" | "failed";
+
+export type MusicWorkflowStep = {
+  id: WorkflowStepId;
+  kind: "agent" | "tool";
+  owner: string;
+  title: string;
+  output: string;
+  status: WorkflowStepStatus;
+  evidence?: string;
+};
+
+export type MusicWorkflow = {
+  runId: string | null;
+  status: "idle" | "running" | "complete" | "failed";
+  steps: MusicWorkflowStep[];
 };
 
 export type DialogKind =
@@ -105,6 +144,7 @@ export type ProjectVersion = {
   prompt?: string;
   preferences?: GenerationPreferences;
   lyrics?: string[];
+  lyricCues?: LyricCue[];
   tracks?: MusicTrack[];
   seed?: string;
   reference?: GenerationReferenceSettings;

@@ -1,5 +1,5 @@
-import { TONE_PROFILES } from "../data/toneProfiles";
-import type { ToneProfile } from "../types";
+import { TONE_PROFILES, type MasteringProfile } from "../data/toneProfiles";
+import type { LyricClarity, ToneProfile } from "../types";
 
 type AudioBufferShape = Pick<
   AudioBuffer,
@@ -14,6 +14,7 @@ export type AudioMasteringReport = {
   renderedPeak: number;
   outputPeak: number;
   peakGainDb: number;
+  lyricClarity: LyricClarity;
 };
 
 export type AudioMasteringResult = {
@@ -24,6 +25,7 @@ export type AudioMasteringResult = {
 export async function masterAudioBlob(
   blob: Blob,
   profile: ToneProfile,
+  lyricClarity: LyricClarity = "natural",
 ): Promise<AudioMasteringResult> {
   if (!blob.type.startsWith("audio/")) {
     throw new Error("只有真实音频文件可以进行柔化处理。");
@@ -56,7 +58,7 @@ export async function masterAudioBlob(
       sourceBuffer.copyToChannel(decoded.getChannelData(channel), channel);
     }
 
-    const settings = TONE_PROFILES[profile].mastering;
+    const settings = resolveMasteringSettings(profile, lyricClarity);
     const source = offline.createBufferSource();
     source.buffer = sourceBuffer;
 
@@ -106,6 +108,7 @@ export async function masterAudioBlob(
         renderedPeak,
         outputPeak,
         peakGainDb: gainToDecibels(peakGain),
+        lyricClarity,
       },
     };
   } catch (error) {
@@ -116,6 +119,29 @@ export async function masterAudioBlob(
   } finally {
     await decodingContext.close();
   }
+}
+
+export function resolveMasteringSettings(
+  profile: ToneProfile,
+  lyricClarity: LyricClarity,
+): MasteringProfile {
+  const base = TONE_PROFILES[profile].mastering;
+  if (lyricClarity !== "clear") return base;
+  return {
+    ...base,
+    presence: {
+      ...base.presence,
+      gain: Math.max(base.presence.gain, -0.35),
+    },
+    highShelf: {
+      ...base.highShelf,
+      gain: Math.max(base.highShelf.gain, -1.35),
+    },
+    compressor: {
+      ...base.compressor,
+      ratio: Math.min(base.compressor.ratio, 1.85),
+    },
+  };
 }
 
 export function measureAudioPeak(buffer: AudioBufferShape) {

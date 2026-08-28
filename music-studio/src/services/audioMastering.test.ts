@@ -5,6 +5,7 @@ import {
   encodeAudioBufferToWav,
   measureAudioPeak,
   readWavSampleRate,
+  resolveMasteringSettings,
 } from "./audioMastering";
 
 function audioBuffer(channels: number[][], sampleRate = 48_000) {
@@ -67,5 +68,15 @@ describe("audio mastering", () => {
 
     expect(readWavSampleRate(await wav.arrayBuffer())).toBe(44_100);
     expect(readWavSampleRate(new ArrayBuffer(16))).toBeUndefined();
+  });
+
+  it("protects Mandarin lyric presence while still softening harsh highs", () => {
+    const natural = resolveMasteringSettings("warm", "natural");
+    const clear = resolveMasteringSettings("warm", "clear");
+
+    expect(clear.presence.gain).toBeGreaterThan(natural.presence.gain);
+    expect(clear.highShelf.gain).toBeGreaterThan(natural.highShelf.gain);
+    expect(clear.highShelf.gain).toBeLessThan(0);
+    expect(clear.compressor.ratio).toBeLessThan(natural.compressor.ratio);
   });
 });

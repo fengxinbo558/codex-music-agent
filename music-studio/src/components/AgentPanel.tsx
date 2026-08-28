@@ -9,8 +9,10 @@ import type {
   GenerationReferenceSettings,
   MusicAsset,
   MusicEngineStatus,
+  MusicWorkflow,
   ProjectVersion,
 } from "../types";
+import { AgentWorkflow } from "./AgentWorkflow";
 import { GenerationResultActions } from "./GenerationResultActions";
 import { GenerationSettings } from "./GenerationSettings";
 import { ReferenceAudioControls } from "./ReferenceAudioControls";
@@ -19,6 +21,7 @@ type AgentPanelProps = {
   state: AgentState;
   progress: number;
   progressLabel: string;
+  workflow: MusicWorkflow;
   plan: AgentPlanResponse | null;
   prompt: string;
   lyricsCharacterCount: number;
@@ -61,6 +64,7 @@ export function AgentPanel({
   state,
   progress,
   progressLabel,
+  workflow,
   plan,
   prompt,
   lyricsCharacterCount,
@@ -95,6 +99,7 @@ export function AgentPanel({
   const isBusy = state === "thinking" || state === "rendering";
   const isModelPreparing =
     musicEngineStatus === "checking" || musicEngineStatus === "preparing";
+  const isModelOffline = musicEngineStatus === "offline";
   const hasValidReference =
     referenceSettings.mode === "none" ||
     assets.some((asset) => asset.id === referenceSettings.assetId);
@@ -141,17 +146,9 @@ export function AgentPanel({
       </div>
 
       <div className="agent-scroll">
+        <AgentWorkflow workflow={workflow} />
         {isBusy ? (
-          <div className="agent-progress" aria-live="polite">
-            <div className="thinking-orbit" aria-hidden="true">
-              <span />
-              <i />
-            </div>
-            <span>
-              {state === "thinking"
-                ? "Codex 正在理解你的想法"
-                : "音乐引擎正在制作新版本"}
-            </span>
+          <div className="workflow-live-status" aria-live="polite">
             <strong>{progressLabel}</strong>
             <div
               className="progress-track"
@@ -159,46 +156,16 @@ export function AgentPanel({
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={progress}
-              aria-label="生成进度"
+              aria-label="模型任务进度"
             >
               <i style={{ width: `${progress}%` }} />
             </div>
             <output>{progress}%</output>
           </div>
-        ) : (
+        ) : null}
+        {!isBusy ? (
           <>
-            {plan ? (
-              <PlanSummary plan={plan} />
-            ) : (
-              <div className="agent-intro">
-                <span className="intro-glyph" aria-hidden="true">
-                  ✦
-                </span>
-                <h3>一句话，做一首歌</h3>
-                <p>
-                  不用懂乐理。说清楚故事、情绪或想要的感觉，Agent
-                  会替你整理曲风、速度、结构和歌词，再交给音乐模型生成。
-                </p>
-                <dl>
-                  <div>
-                    <dt>1</dt>
-                    <dd>理解创作意图</dd>
-                  </div>
-                  <div>
-                    <dt>2</dt>
-                    <dd>规划曲风与结构</dd>
-                  </div>
-                  <div>
-                    <dt>3</dt>
-                    <dd>调用音乐模型</dd>
-                  </div>
-                  <div>
-                    <dt>4</dt>
-                    <dd>保存成新版本</dd>
-                  </div>
-                </dl>
-              </div>
-            )}
+            {plan ? <PlanSummary plan={plan} /> : null}
             <GenerationResultActions
               hasAudio={hasAudio && state === "complete"}
               hasError={state === "error"}
@@ -218,7 +185,7 @@ export function AgentPanel({
               onCompare={onCompare}
             />
           </>
-        )}
+        ) : null}
       </div>
 
       <form className="agent-composer" onSubmit={submit}>
@@ -280,20 +247,26 @@ export function AgentPanel({
             className="generate-button"
             type="submit"
             disabled={
-              isBusy || isModelPreparing || !prompt.trim() || !hasValidReference
+              isBusy ||
+              isModelPreparing ||
+              isModelOffline ||
+              !prompt.trim() ||
+              !hasValidReference
             }
           >
             {isBusy
               ? "正在做歌"
               : isModelPreparing
                 ? "模型准备中"
-                : referenceSettings.mode === "style"
-                  ? "参考这个风格生成"
-                  : referenceSettings.mode === "cover"
-                    ? "翻唱 / 重编这段音频"
-                    : preferences.variantCount === 2
-                      ? "生成 2 个版本"
-                      : "生成一首歌"}
+                : isModelOffline
+                  ? "真实模型未启动"
+                  : referenceSettings.mode === "style"
+                    ? "参考这个风格生成"
+                    : referenceSettings.mode === "cover"
+                      ? "翻唱 / 重编这段音频"
+                      : preferences.variantCount === 2
+                        ? "生成 2 个版本"
+                        : "生成一首歌"}
             <span aria-hidden="true">→</span>
           </button>
         </div>

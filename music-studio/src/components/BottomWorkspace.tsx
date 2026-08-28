@@ -125,57 +125,18 @@ export function BottomWorkspace({
           id="mixer-content"
           role="tabpanel"
           aria-labelledby="mixer-tab"
-          className="mini-mixer"
+          className="capability-locked"
         >
-          {tracks.map((track) => (
-            <div className="mixer-channel" key={track.id}>
-              <span
-                className="track-color"
-                style={{ background: track.color }}
-              />
-              <strong>{track.name}</strong>
-              <label>
-                <span>音量</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={track.volume}
-                  onChange={(event) =>
-                    onTrackMixChange(
-                      track.id,
-                      "volume",
-                      Number(event.currentTarget.value),
-                    )
-                  }
-                />
-                <output>{track.volume}</output>
-              </label>
-              <label>
-                <span>声像</span>
-                <input
-                  type="range"
-                  min="-50"
-                  max="50"
-                  value={track.pan}
-                  onChange={(event) =>
-                    onTrackMixChange(
-                      track.id,
-                      "pan",
-                      Number(event.currentTarget.value),
-                    )
-                  }
-                />
-                <output>
-                  {track.pan === 0
-                    ? "C"
-                    : track.pan < 0
-                      ? `L${Math.abs(track.pan)}`
-                      : `R${track.pan}`}
-                </output>
-              </label>
-            </div>
-          ))}
+          <span aria-hidden="true">◫</span>
+          <div>
+            <strong>真实分轨尚未接通</strong>
+            <p>
+              ACE-Step 当前返回的是一份混合
+              WAV，不是真正独立的人声、鼓、贝斯和乐器音轨。
+              因此这里不会提供无效的音量与声像滑杆。
+            </p>
+            <small>后续接入分轨模型后，这里会自动开放真实混音。</small>
+          </div>
         </div>
       ) : null}
       {activeTab === "versions" ? (

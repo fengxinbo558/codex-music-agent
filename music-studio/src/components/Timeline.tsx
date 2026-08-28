@@ -42,8 +42,8 @@ export function Timeline({
             }
           />
           {selectedClips.length
-            ? `已选择 ${selectedClips.length} 个片段`
-            : "点击片段，告诉 Agent 只改哪里"}
+            ? `正在查看 ${selectedClips.length} 个结构片段`
+            : "当前是结构示意；局部重绘待真实接通"}
         </div>
       </div>
 
@@ -111,16 +111,20 @@ function TrackRow({
         <span className="track-actions">
           <button
             type="button"
+            disabled
+            title="需要真实分轨音频"
             onClick={() => onToggleTrack(track.id, "muted")}
-            aria-label={`${track.muted ? "取消静音" : "静音"}${track.name}`}
+            aria-label={`${track.name}静音待真实分轨后开放`}
             aria-pressed={track.muted}
           >
             M
           </button>
           <button
             type="button"
+            disabled
+            title="需要真实分轨音频"
             onClick={() => onToggleTrack(track.id, "solo")}
-            aria-label={`${track.solo ? "取消独奏" : "独奏"}${track.name}`}
+            aria-label={`${track.name}独奏待真实分轨后开放`}
             aria-pressed={track.solo}
           >
             S
@@ -150,9 +154,11 @@ function TrackRow({
               <button
                 className={`audio-clip ${isSelected ? "is-selected" : ""}`}
                 type="button"
+                disabled
+                title="局部重绘还未接入真实模型任务"
                 onClick={() => onToggleClip(clip.id)}
                 aria-pressed={isSelected}
-                aria-label={`${clip.name}，${clip.duration} 秒`}
+                aria-label={`${clip.name}，${clip.duration} 秒，结构示意`}
               >
                 <span className="clip-name">{clip.name}</span>
                 <span className="waveform" aria-hidden="true">

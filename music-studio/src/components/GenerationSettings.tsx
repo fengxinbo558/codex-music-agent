@@ -4,6 +4,7 @@ import {
   CREATIVITY_LABELS,
   estimateGenerationTime,
   getContentFitNotice,
+  LYRIC_CLARITY_LABELS,
   LYRICS_MODE_LABELS,
   summarizePreferences,
   VOCAL_STYLE_LABELS,
@@ -14,6 +15,7 @@ import type {
   CreativityLevel,
   GenerationDuration,
   GenerationPreferences,
+  LyricClarity,
   LyricsMode,
   ToneProfile,
   VocalDelivery,
@@ -95,6 +97,16 @@ export function GenerationSettings({
             value={preferences.vocalDelivery}
             disabled={disabled || preferences.vocalStyle === "instrumental"}
             onChange={(value) => update("vocalDelivery", value)}
+          />
+          <ChoiceGroup<LyricClarity>
+            legend="歌词清晰度"
+            name="lyric-clarity"
+            value={preferences.lyricClarity}
+            options={Object.entries(LYRIC_CLARITY_LABELS).map(
+              ([value, label]) => ({ value: value as LyricClarity, label }),
+            )}
+            disabled={disabled || preferences.vocalStyle === "instrumental"}
+            onChange={(value) => update("lyricClarity", value)}
           />
           <ChoiceGroup<LyricsMode>
             legend="歌词"

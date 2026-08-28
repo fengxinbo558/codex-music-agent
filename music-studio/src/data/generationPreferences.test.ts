@@ -19,7 +19,9 @@ describe("generation preferences", () => {
     });
 
     expect(preferences.vocalDelivery).toBe("natural");
+    expect(preferences.lyricClarity).toBe("clear");
     expect(summarizePreferences(preferences)).toContain("自然演唱");
+    expect(summarizePreferences(preferences)).toContain("歌词清晰优先");
   });
 
   it("shows the selected aggressive delivery in the compact summary", () => {

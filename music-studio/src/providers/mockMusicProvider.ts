@@ -9,6 +9,11 @@ import type {
 export type GenerationProgress = {
   progress: number;
   label: string;
+  stage?:
+    | "model_submitting"
+    | "model_accepted"
+    | "model_running"
+    | "audio_received";
 };
 
 export interface MusicProvider {
@@ -48,16 +53,18 @@ export const mockMusicProvider: MusicProvider = {
     const url = URL.createObjectURL(blob);
     onProgress({ progress: 100, label: "新版本已就绪" });
 
-    return [{
-      url,
-      blob,
-      duration: DURATION_SECONDS,
-      tracks: createGeneratedTracks(brief),
-      provider: "Prototype Synth（链路演示）",
-      costLabel: "浏览器本地演示 · 不产生按次 API 费用",
-      warning:
-        "ACE-Step 当前未启动，链路试听固定为 16 秒、1 个版本，不是真实 AI 歌曲。",
-    }];
+    return [
+      {
+        url,
+        blob,
+        duration: DURATION_SECONDS,
+        tracks: createGeneratedTracks(brief),
+        provider: "Prototype Synth（链路演示）",
+        costLabel: "浏览器本地演示 · 不产生按次 API 费用",
+        warning:
+          "ACE-Step 当前未启动，链路试听固定为 16 秒、1 个版本，不是真实 AI 歌曲。",
+      },
+    ];
   },
 };
 

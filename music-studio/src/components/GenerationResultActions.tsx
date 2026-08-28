@@ -105,10 +105,15 @@ export function GenerationResultActions({
           <strong>再生成一版</strong>
           <small>保留想法，做出不同结果</small>
         </button>
-        <button type="button" onClick={onRefineChorus}>
+        <button
+          type="button"
+          disabled
+          title="ACE-Step 的真实局部重绘任务尚未接通"
+          onClick={onRefineChorus}
+        >
           <span aria-hidden="true">⌁</span>
           <strong>只改副歌</strong>
-          <small>先选好范围，再补充要求</small>
+          <small>待真实局部重绘接通后开放</small>
         </button>
         <button type="button" onClick={onNewProject}>
           <span aria-hidden="true">＋</span>

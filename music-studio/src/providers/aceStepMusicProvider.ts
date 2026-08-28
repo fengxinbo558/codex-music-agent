@@ -8,9 +8,9 @@ import type {
 import { normalizeGenerationPreferences } from "../data/generationPreferences";
 import { tonePrompt } from "../data/toneProfiles";
 import { vocalDeliveryPrompt } from "../data/vocalDelivery";
+import { vocalClarityPrompt } from "../data/vocalClarity";
 import {
   createGeneratedTracks,
-  mockMusicProvider,
   type GenerationProgress,
   type MusicProvider,
 } from "./mockMusicProvider";
@@ -76,13 +76,11 @@ export const automaticMusicProvider: MusicProvider = {
   name: "ACE-Step 本地优先",
   async generate(brief, preferences, onProgress, reference) {
     if (!(await checkAceStepHealth())) {
-      if (reference) {
-        throw new Error(
-          "参考音频模式需要 ACE-Step 真实模型，当前模型没有启动。",
-        );
-      }
-      onProgress({ progress: 8, label: "真实音乐模型未启动，生成链路试听" });
-      return mockMusicProvider.generate(brief, preferences, onProgress);
+      throw new Error(
+        reference
+          ? "参考音频模式需要 ACE-Step 真实模型，当前模型没有启动。"
+          : "ACE-Step 真实音乐模型未启动。本次没有创建歌曲，请先到“模型”页启动后再生成。",
+      );
     }
     return generateWithAceStep(brief, preferences, onProgress, reference);
   },
@@ -96,6 +94,7 @@ async function generateWithAceStep(
 ): Promise<GeneratedAudio[]> {
   onProgress({
     progress: 29,
+    stage: "model_submitting",
     label: reference
       ? reference.mode === "style"
         ? "ACE-Step 正在读取参考风格"
@@ -126,6 +125,11 @@ async function generateWithAceStep(
   }
 
   const taskId = release.data.task_id;
+  onProgress({
+    progress: 32,
+    stage: "model_accepted",
+    label: `ACE-Step 已接受任务 ${taskId.slice(0, 8)}`,
+  });
   const startedAt = Date.now();
   let displayedProgress = 32;
 
@@ -154,6 +158,7 @@ async function generateWithAceStep(
         throw new Error("ACE-Step 已完成，但没有返回音频文件。");
       onProgress({
         progress: 96,
+        stage: "audio_received",
         label: `${available.length} 个真实版本已生成，正在载入试听`,
       });
       const generated = await Promise.all(
@@ -187,6 +192,7 @@ async function generateWithAceStep(
           );
     onProgress({
       progress: Math.round(displayedProgress),
+      stage: "model_running",
       label: friendlyStage(first?.stage || task.progress_text),
     });
   }
@@ -213,14 +219,20 @@ export function createAceStepRequest(
     resolvedPreferences.vocalDelivery,
     resolvedPreferences.vocalStyle,
   );
+  const clarity = vocalClarityPrompt(
+    resolvedPreferences.lyricClarity,
+    resolvedPreferences.vocalStyle,
+  );
 
   return {
     prompt: createMusicPrompt(
       brief,
       resolvedPreferences,
-      [tone.positive, delivery.positive].filter(Boolean).join(", "),
+      [tone.positive, delivery.positive, clarity.positive]
+        .filter(Boolean)
+        .join(", "),
     ),
-    lm_negative_prompt: [tone.negative, delivery.negative]
+    lm_negative_prompt: [tone.negative, delivery.negative, clarity.negative]
       .filter(Boolean)
       .join(", "),
     lyrics:
@@ -236,6 +248,8 @@ export function createAceStepRequest(
     time_signature: "4",
     audio_duration: resolvedPreferences.duration,
     inference_steps: 8,
+    shift: clarity.shift,
+    lm_cfg_scale: clarity.lmCfgScale,
     batch_size: resolvedPreferences.variantCount,
     audio_format: "wav",
     model: "acestep-v15-turbo",
@@ -284,6 +298,7 @@ function createMusicPrompt(
     `instruments: ${brief.instruments.join(", ")}`,
     `structure: ${brief.structure.join(", ")}`,
     brief.summary,
+    preferences.vocalStyle === "instrumental" ? "" : brief.vocalMode,
     toneDirection,
   ]
     .filter(Boolean)

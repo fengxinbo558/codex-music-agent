@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AgentPanel } from "./components/AgentPanel";
 import { BottomWorkspace } from "./components/BottomWorkspace";
+import { KaraokeLyrics } from "./components/KaraokeLyrics";
 import {
   CompareDialog,
   ExportDialog,
@@ -45,6 +46,16 @@ import {
   versionsFromStorage,
 } from "./services/audioAssets";
 import { localAudioStore } from "./services/localAudioStore";
+import { createEstimatedLyricCues } from "./services/lyricTiming";
+import {
+  activateWorkflowStep,
+  completeWorkflow,
+  completeWorkflowStep,
+  createIdleWorkflow,
+  evaluateDeliveryGate,
+  failActiveWorkflow,
+  startWorkflow,
+} from "./services/musicWorkflow";
 import type {
   AgentPlanResponse,
   AgentState,
@@ -60,6 +71,7 @@ import type {
   MusicClip,
   MusicEngineStatus,
   MusicTrack,
+  MusicWorkflow,
   ProjectVersion,
   SpeechRecognitionLike,
 } from "./types";
@@ -75,6 +87,7 @@ export default function App() {
   const [agentState, setAgentState] = useState<AgentState>("idle");
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState("等待你的想法");
+  const [workflow, setWorkflow] = useState<MusicWorkflow>(createIdleWorkflow);
   const [prompt, setPrompt] = useState("");
   const [plan, setPlan] = useState<AgentPlanResponse | null>(null);
   const [tracks, setTracks] = useState<MusicTrack[]>(initialTracks);
@@ -164,6 +177,13 @@ export default function App() {
   const currentVersion = useMemo(
     () => versions.find((version) => version.id === selectedVersion),
     [selectedVersion, versions],
+  );
+  const currentLyricCues = useMemo(
+    () =>
+      currentVersion?.lyricCues?.length
+        ? currentVersion.lyricCues
+        : createEstimatedLyricCues(lyrics, audioDuration),
+    [audioDuration, currentVersion?.lyricCues, lyrics],
   );
 
   const announce = useCallback((message: string) => {
@@ -338,14 +358,6 @@ export default function App() {
     };
   }, []);
   useEffect(() => {
-    if (agentState !== "thinking") return;
-    const timer = window.setInterval(
-      () => setProgress((value) => Math.min(24, value + 1)),
-      480,
-    );
-    return () => window.clearInterval(timer);
-  }, [agentState]);
-  useEffect(() => {
     const handlePageUnload = () => releaseActiveObjectUrl();
     window.addEventListener("pagehide", handlePageUnload);
     return () => window.removeEventListener("pagehide", handlePageUnload);
@@ -398,6 +410,7 @@ export default function App() {
       ...items,
     ]);
     setAgentState("thinking");
+    setWorkflow(startWorkflow(taskId));
     setProgress(6);
     setProgressLabel("读取当前工程与选中片段");
     setAnnouncement("Codex 正在理解音乐想法");
@@ -448,9 +461,39 @@ export default function App() {
       const renderBrief = {
         ...nextPlan.brief,
         lyrics: generationLyrics,
-        vocalMode: vocalModePrompt(preferences.vocalStyle),
+        vocalMode:
+          preferences.vocalStyle === "instrumental"
+            ? "纯音乐"
+            : `${vocalModePrompt(preferences.vocalStyle)}；${nextPlan.brief.vocalMode}`,
       };
       const renderPlan = { ...nextPlan, brief: renderBrief };
+      setWorkflow((current) => {
+        let next = completeWorkflowStep(
+          current,
+          "director",
+          `${renderBrief.genre} · ${renderBrief.mood} · ${renderBrief.bpm} BPM · ${renderBrief.key}`,
+        );
+        next = completeWorkflowStep(
+          next,
+          "lyrics",
+          preferences.vocalStyle === "instrumental"
+            ? "纯音乐版本：无需演唱歌词"
+            : `${generationLyrics.filter((line) => line.trim()).length} 行歌词已交接`,
+        );
+        next = completeWorkflowStep(
+          next,
+          "arrangement",
+          `${renderBrief.structure.join(" → ")} · ${renderBrief.instruments.join("、")}`,
+        );
+        next = completeWorkflowStep(
+          next,
+          "vocal",
+          preferences.vocalStyle === "instrumental"
+            ? "纯音乐"
+            : `${renderBrief.vocalMode} · ${preferences.lyricClarity === "clear" ? "歌词清晰优先" : "自然融合"}`,
+        );
+        return activateWorkflowStep(next, "model", "正在提交真实生成任务");
+      });
       setPlan(renderPlan);
       setBpm(nextPlan.brief.bpm);
       setMusicKey(nextPlan.brief.key);
@@ -462,13 +505,29 @@ export default function App() {
       const generated = await automaticMusicProvider.generate(
         renderBrief,
         preferences,
-        ({ progress: value, label }) => {
+        ({ progress: value, label, stage }) => {
           setProgress(Math.max(27, value));
           setProgressLabel(label);
+          if (stage) {
+            setWorkflow((current) =>
+              activateWorkflowStep(current, "model", label),
+            );
+          }
         },
         generationReference,
       );
       if (!generated.length) throw new Error("音乐模型没有返回可播放版本。");
+      setWorkflow((current) =>
+        activateWorkflowStep(
+          completeWorkflowStep(
+            current,
+            "model",
+            `${generated.length} 个真实 WAV 已由 ACE-Step 返回`,
+          ),
+          "master",
+          "正在处理尖锐感并保护人声咬字",
+        ),
+      );
       setProgress(97);
       setProgressLabel("模型原声已生成，正在柔化尖锐高频");
       const createdAt = Date.now();
@@ -522,6 +581,9 @@ export default function App() {
             const mastered = await masterAudioBlob(
               sourceBlob,
               preferences.toneProfile,
+              preferences.vocalStyle === "instrumental"
+                ? "natural"
+                : preferences.lyricClarity,
             );
             const masteredAnalysis = await analyzeAudioBlob(mastered.blob);
             asset = createAudioAsset({
@@ -603,6 +665,21 @@ export default function App() {
       setTracks(firstResult.tracks);
       setSelectedClips([]);
       setGenerationMode("full");
+      setWorkflow((current) =>
+        activateWorkflowStep(
+          completeWorkflowStep(
+            current,
+            "master",
+            storedResults.every(
+              (stored) => stored.masteringStatus === "complete",
+            )
+              ? "模型原声与清晰柔和版均已保存"
+              : "模型原声已保存；优化版有未完成项",
+          ),
+          "lyricTiming",
+          "正在生成可点击的逐句歌词时间轴",
+        ),
+      );
       const newVersions: ProjectVersion[] = storedResults.map(
         (
           {
@@ -634,6 +711,13 @@ export default function App() {
           prompt: cleanPrompt,
           preferences: { ...preferences },
           lyrics: [...displayedLyrics],
+          lyricCues:
+            preferences.vocalStyle === "instrumental"
+              ? []
+              : createEstimatedLyricCues(
+                  displayedLyrics,
+                  asset.durationSeconds,
+                ),
           tracks: result.tracks,
           reference: { ...reference },
           seed: result.seed,
@@ -645,6 +729,40 @@ export default function App() {
           },
         }),
       );
+      setWorkflow((current) =>
+        activateWorkflowStep(
+          completeWorkflowStep(
+            current,
+            "lyricTiming",
+            preferences.vocalStyle === "instrumental"
+              ? "纯音乐版本无需歌词时间轴"
+              : `${newVersions[0]?.lyricCues?.length ?? 0} 句歌词已完成智能估时`,
+          ),
+          "quality",
+          "正在核验音频、版本、保存状态与歌词",
+        ),
+      );
+      const deliveryGates = newVersions.map((version) =>
+        evaluateDeliveryGate({
+          versionId: version.id,
+          audioAssetId: version.audioAssetId,
+          audioSaved: storedResults.some(
+            (stored) => stored.asset.id === version.audioAssetId,
+          ),
+          duration: version.duration ?? 0,
+          hasVocals: preferences.vocalStyle !== "instrumental",
+          lyrics: version.lyrics ?? [],
+          lyricCues: version.lyricCues ?? [],
+        }),
+      );
+      const failedChecks = deliveryGates.flatMap((gate) =>
+        gate.checks.filter((check) => !check.pass).map((check) => check.label),
+      );
+      if (failedChecks.length) {
+        throw new Error(
+          `交付检查未通过：${[...new Set(failedChecks)].join("、")}`,
+        );
+      }
       const storedAssets = storedResults.flatMap(({ asset, sourceAsset }) =>
         asset.id === sourceAsset.id ? [asset] : [asset, sourceAsset],
       );
@@ -661,6 +779,15 @@ export default function App() {
         firstStored.masteringStatus === "complete" ? "optimized" : "source",
       );
       await loadAudioAsset(firstStored.asset);
+      setWorkflow((current) =>
+        completeWorkflow(
+          completeWorkflowStep(
+            current,
+            "quality",
+            `已核验 ${newVersions.length} 个版本：真实音频可播放、本机保存成功、歌词可跟唱`,
+          ),
+        ),
+      );
       setAgentState("complete");
       setProgress(100);
       setProgressLabel(
@@ -695,6 +822,12 @@ export default function App() {
       );
     } catch (error) {
       setAgentState("error");
+      setWorkflow((current) =>
+        failActiveWorkflow(
+          current,
+          error instanceof Error ? error.message : "生成没有完成",
+        ),
+      );
       setProgressLabel("生成没有完成");
       setTasks((items) =>
         items.map((task) =>
@@ -821,7 +954,13 @@ export default function App() {
       const sourceBlob = await localAudioStore.getBlob(sourceAsset);
       if (!sourceBlob)
         throw new Error("模型原声已经丢失，请重新生成这个版本。");
-      const mastered = await masterAudioBlob(sourceBlob, "warm");
+      const mastered = await masterAudioBlob(
+        sourceBlob,
+        "warm",
+        normalizeGenerationPreferences(
+          version.preferences ?? generationPreferences,
+        ).lyricClarity,
+      );
       const analysis = await analyzeAudioBlob(mastered.blob);
       const createdAt = Date.now();
       const nextVersionId = `v-${createdAt}-warm`;
@@ -1178,6 +1317,7 @@ export default function App() {
     );
     setPlan(null);
     setAgentState("idle");
+    setWorkflow(createIdleWorkflow());
     setSelectedClips([]);
     setOperationScope([]);
     setDialog(null);
@@ -1299,6 +1439,15 @@ export default function App() {
                       ?.audioAssetId,
                   )}
                 />
+                <KaraokeLyrics
+                  cues={currentLyricCues}
+                  currentTime={currentTime}
+                  hasAudio={Boolean(audioUrl)}
+                  isInstrumental={
+                    currentVersion?.preferences?.vocalStyle === "instrumental"
+                  }
+                  onSeek={handleSeek}
+                />
                 <BottomWorkspace
                   lyrics={lyrics}
                   bpm={bpm}
@@ -1322,6 +1471,7 @@ export default function App() {
               state={agentState}
               progress={progress}
               progressLabel={progressLabel}
+              workflow={workflow}
               plan={plan}
               prompt={prompt}
               lyricsCharacterCount={lyrics.join("").replace(/\s/g, "").length}
