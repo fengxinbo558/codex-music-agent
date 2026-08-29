@@ -174,18 +174,32 @@ export function ExportDialog({
 export function CompareDialog({
   versions,
   selectedVersion,
-  onSelectVersion,
+  adoptedVersionId,
+  isPlaying,
+  currentTime,
+  duration,
+  onToggleAudition,
+  onRestart,
+  onAdopt,
   onClose,
 }: {
   versions: ProjectVersion[];
   selectedVersion: string;
-  onSelectVersion: (versionId: string) => void;
+  adoptedVersionId: string;
+  isPlaying: boolean;
+  currentTime: number;
+  duration: number;
+  onToggleAudition: (versionId: string) => void;
+  onRestart: (versionId: string) => void;
+  onAdopt: (versionId: string) => void;
   onClose: () => void;
 }) {
   const primary =
     versions.find((version) => version.id === selectedVersion) ?? versions[0];
   const secondary =
-    versions.find((version) => version.id !== primary.id) ?? primary;
+    versions.find(
+      (version) => version.id !== primary.id && canAdoptVersion(version),
+    ) ?? versions.find((version) => version.id !== primary.id) ?? primary;
   return (
     <Modal
       title="版本 A / B 对比"
@@ -217,6 +231,26 @@ export function CompareDialog({
               ))}
             </div>
             <h3>{version.note}</h3>
+            <div className="compare-player">
+              <div className="compare-progress" aria-label={`${version.label}试听进度`}>
+                <i
+                  style={{
+                    width: `${selectedVersion === version.id && duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0}%`,
+                  }}
+                />
+              </div>
+              <span>
+                {selectedVersion === version.id ? formatCompareTime(currentTime) : "0:00"}
+                {" / "}
+                {formatCompareTime(version.duration ?? 0)}
+              </span>
+              <div>
+                <button type="button" onClick={() => onToggleAudition(version.id)}>
+                  {selectedVersion === version.id && isPlaying ? "暂停" : "试听"}
+                </button>
+                <button type="button" onClick={() => onRestart(version.id)}>从头播放</button>
+              </div>
+            </div>
             <dl>
               <div>
                 <dt>BPM</dt>
@@ -227,31 +261,49 @@ export function CompareDialog({
                 <dd>{version.musicKey ?? "C major"}</dd>
               </div>
               <div>
-                <dt>引擎</dt>
-                <dd>{version.provider ?? "演示链路"}</dd>
+                <dt>歌词质检</dt>
+                <dd>{compareQualityLabel(version)}</dd>
               </div>
             </dl>
             <button
-              className="secondary-action"
+              className={adoptedVersionId === version.id ? "secondary-action is-adopted" : "secondary-action"}
               type="button"
-              onClick={() => {
-                onSelectVersion(version.id);
-                onClose();
-              }}
+              disabled={!canAdoptVersion(version)}
+              title={canAdoptVersion(version) ? undefined : "这个版本的真实唱词或吐字未通过，仍可试听但不能采用"}
+              onClick={() => onAdopt(version.id)}
             >
-              设 {version.label} 为当前版本
+              {adoptedVersionId === version.id ? "已采用" : `采用 ${marker}`}
             </button>
           </section>
         ))}
       </div>
       <footer className="compare-footer">
-        <p>正式音乐引擎接入后，这里会支持同步播放与响度匹配。</p>
+        <p>试听只切换耳朵里听到的版本；只有“采用 A / B”才改变正式版本。</p>
         <button className="primary-action" type="button" onClick={onClose}>
           完成对比
         </button>
       </footer>
     </Modal>
   );
+}
+
+function formatCompareTime(seconds: number) {
+  const safe = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+  return `${Math.floor(safe / 60)}:${String(Math.floor(safe % 60)).padStart(2, "0")}`;
+}
+
+function canAdoptVersion(version: ProjectVersion) {
+  return version.preferences?.vocalStyle === "instrumental" || version.lyricAudit?.status === "passed";
+}
+
+function compareQualityLabel(version: ProjectVersion) {
+  if (version.preferences?.vocalStyle === "instrumental") return "纯音乐，无需唱词检查";
+  return {
+    processing: "正在听真实人声",
+    passed: "唱词与吐字通过",
+    warning: "需要人工复听",
+    failed: "未通过，不能采用",
+  }[version.lyricAudit?.status ?? "failed"];
 }
 
 export function InstallPlanDialog({

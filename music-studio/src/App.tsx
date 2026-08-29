@@ -65,6 +65,17 @@ import {
   updateLyricLine,
 } from "./services/lyricDraft";
 import {
+  compileLyricSegments,
+  compileLyricsForMusicModel,
+  selectCoreSampleDraft,
+  verbalizeNumbers,
+} from "./services/lyricCompiler";
+import { generateSegmentedSong } from "./services/segmentedSongPipeline";
+import {
+  buildLyricStorySkeleton,
+  evaluateLyricProfessionalism,
+} from "./services/lyricProfessionalism";
+import {
   lyricWritingStyleLabel,
   recommendedLyricWritingStyle,
 } from "./services/lyricWritingStyles";
@@ -94,6 +105,7 @@ import type {
   MusicAsset,
   MusicEngineStatus,
   LyricCue,
+  LyricAbstractionLevel,
   MusicTrack,
   MusicWorkflow,
   LyricVocalDraft,
@@ -117,6 +129,7 @@ export default function App() {
   const [pendingDeletion, setPendingDeletion] = useState<
     | { kind: "version"; id: string; name: string; detail: string }
     | { kind: "asset"; id: string; name: string; detail: string }
+    | { kind: "project"; id: string; name: string; detail: string }
     | null
   >(null);
   const [agentState, setAgentState] = useState<AgentState>("idle");
@@ -163,6 +176,9 @@ export default function App() {
   >([]);
   const [selectedVersion, setSelectedVersion] = useState(() =>
     readStored("codex-music-version", "v3"),
+  );
+  const [adoptedVersionId, setAdoptedVersionId] = useState(() =>
+    readStored("codex-music-adopted-version", readStored("codex-music-version", "v3")),
   );
   const [lyrics, setLyrics] = useState<string[]>(() =>
     readStoredJson("codex-music-lyrics", initialLyrics),
@@ -321,6 +337,9 @@ export default function App() {
     localStorage.setItem("codex-music-version", selectedVersion);
   }, [selectedVersion]);
   useEffect(() => {
+    localStorage.setItem("codex-music-adopted-version", adoptedVersionId);
+  }, [adoptedVersionId]);
+  useEffect(() => {
     localStorage.setItem("codex-music-lyrics", JSON.stringify(lyrics));
   }, [lyrics]);
   useEffect(() => {
@@ -372,6 +391,16 @@ export default function App() {
                     ? (restoredPlan as AgentPlanResponse).brief
                     : null,
               }),
+            abstractionLevel: restoredDraft.abstractionLevel ?? "balanced",
+            originalIdea: restoredDraft.originalIdea ?? restored.idea,
+            skeleton: buildLyricStorySkeleton({
+              idea: restored.idea,
+              lines: restoredDraft.lines,
+            }),
+            professionalReport: evaluateLyricProfessionalism({
+              idea: restored.idea,
+              lines: restoredDraft.lines,
+            }),
           };
           setLyricDraft(nextDraft);
           setLyrics(nextDraft.lines.map((line) => line.text));
@@ -484,7 +513,8 @@ export default function App() {
       setLocalAudioStatus(
         health?.capabilities.stems &&
           health.capabilities.pitch_analysis &&
-          health.capabilities.pitch_shift
+          health.capabilities.pitch_shift &&
+          health.capabilities.lyric_alignment
           ? "ready"
           : "offline",
       );
@@ -572,6 +602,66 @@ export default function App() {
             ),
           ),
       });
+      let lyricCues = input.version.lyricCues ?? [];
+      let lyricAudit = input.version.lyricAudit;
+      if ((input.version.lyrics?.length ?? 0) > 0) {
+        const vocalAsset = result.assets.find(
+          (asset) => asset.id === result.assetIds.vocals,
+        );
+        const vocalBlob = vocalAsset
+          ? await localAudioStore.getBlob(vocalAsset)
+          : null;
+        if (!vocalAsset || !vocalBlob) {
+          lyricAudit = {
+            status: "failed",
+            transcription: "",
+            error: "真实人声分轨已经建立，但读取不到人声音频。",
+          };
+        } else {
+          setTasks((items) =>
+            items.map((task) =>
+              task.id === taskId
+                ? { ...task, detail: "正在识别真实唱词并建立逐句时间轴" }
+                : task,
+            ),
+          );
+          try {
+            const alignment = await localAudioClient.alignLyrics({
+              blob: vocalBlob,
+              filename: vocalAsset.name,
+              lyrics: input.version.lyrics ?? [],
+              keyTerms: input.version.lyricFactAnchors ?? [],
+            });
+            lyricCues = alignment.cues;
+            lyricAudit = {
+              status: alignment.quality.status,
+              transcription: alignment.transcription,
+              jobId: alignment.jobId,
+              quality: alignment.quality,
+            };
+          } catch (error) {
+            lyricAudit = {
+              status: "failed",
+              transcription: "",
+              error:
+                error instanceof Error
+                  ? error.message
+                  : "真实歌词识别没有完成。",
+            };
+          }
+        }
+      }
+      const updatedVersion: ProjectVersion = {
+        ...input.version,
+        lyricCues,
+        lyricAudit,
+        stems: {
+          status: "ready",
+          jobId: result.jobId,
+          assetIds: result.assetIds,
+          quality: result.quality,
+        },
+      };
       setAssets((items) => [
         ...result.assets,
         ...items.filter(
@@ -581,15 +671,7 @@ export default function App() {
       setVersions((items) =>
         items.map((version) =>
           version.id === input.version.id
-            ? {
-                ...version,
-                stems: {
-                  status: "ready",
-                  jobId: result.jobId,
-                  assetIds: result.assetIds,
-                  quality: result.quality,
-                },
-              }
+            ? updatedVersion
             : version,
         ),
       );
@@ -600,12 +682,22 @@ export default function App() {
                 ...task,
                 status: "complete",
                 time: "刚刚",
-                detail: "4 条真实分轨已保存并通过重构检查",
+                detail:
+                  lyricAudit?.status === "passed"
+                    ? "4 条真实分轨、真实唱词和逐句时间均已通过"
+                    : lyricAudit?.status === "failed"
+                      ? `分轨完成，但歌词质量未通过：${lyricAudit.quality?.warnings.join("、") || lyricAudit.error || "需要复听"}`
+                      : "4 条真实分轨已保存并通过重构检查",
               }
             : task,
         ),
       );
-      announce("人声、鼓、贝斯和其他乐器四条真实分轨已经准备好");
+      announce(
+        lyricAudit?.status === "passed"
+          ? "真实人声已经识别，歌词、声音与逐句时间全部对齐"
+          : "真实分轨已完成，但这个版本的唱词或吐字没有通过质量门",
+      );
+      return updatedVersion;
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "真实分轨没有完成。";
@@ -628,6 +720,15 @@ export default function App() {
             : task,
         ),
       );
+      return {
+        ...input.version,
+        lyricAudit: {
+          status: "failed",
+          transcription: "",
+          error: message,
+        },
+        stems: { status: "failed", error: message },
+      } satisfies ProjectVersion;
     }
   };
 
@@ -915,14 +1016,20 @@ export default function App() {
     const generationStage = creationSession.currentStage;
     const isSampleGeneration = generationStage === "sample";
     const taskId = `${isSampleGeneration ? "sample" : "full"}-${Date.now()}`;
+    const compiledLyrics = lyricDraft
+      ? compileLyricsForMusicModel(lyricDraft, generationPreferences.duration)
+      : null;
     const preferences: GenerationPreferences = {
       ...generationPreferences,
       duration: isSampleGeneration
         ? 30
-        : generationPreferences.duration === 30
-          ? 60
-          : generationPreferences.duration,
-      variantCount: 1,
+        : compiledLyrics?.suggestedDuration ??
+          (generationPreferences.duration === 30 ? 60 : generationPreferences.duration),
+      variantCount: isSampleGeneration
+        ? 4
+        : generationPreferences.variantCount === 1
+          ? 2
+          : generationPreferences.variantCount,
     };
     const reference = { ...referenceSettings };
     const referenceAsset = visibleAssets.find(
@@ -988,12 +1095,30 @@ export default function App() {
       if (!plan) throw new Error("已确认的创作方向没有恢复，请返回方向步骤。 ");
       const nextPlan = plan;
       const approvedLyrics = lyricDraft?.lines.map((line) => line.text) ?? lyrics;
+      const generationDraft = lyricDraft
+        ? isSampleGeneration
+          ? selectCoreSampleDraft(lyricDraft)
+          : lyricDraft
+        : null;
+      const compiledForGeneration = generationDraft
+        ? compileLyricsForMusicModel(generationDraft, preferences.duration)
+        : null;
       const generationLyrics =
         preferences.vocalStyle === "instrumental"
           ? []
-          : approvedLyrics;
+          : compiledForGeneration
+            ? compiledForGeneration.taggedLyrics.split("\n")
+            : approvedLyrics;
       const displayedLyrics =
-        preferences.vocalStyle === "instrumental" ? lyrics : generationLyrics;
+        preferences.vocalStyle === "instrumental"
+          ? lyrics
+          : compiledForGeneration?.lines ?? approvedLyrics;
+      const displayedLyricText = normalizeAuditText(displayedLyrics.join(""));
+      const generationFactAnchors = (
+        lyricDraft?.professionalReport.factAnchors ?? []
+      ).filter((anchor) =>
+        displayedLyricText.includes(normalizeAuditText(anchor)),
+      );
       const renderBrief = {
         ...nextPlan.brief,
         lyrics: generationLyrics,
@@ -1040,20 +1165,43 @@ export default function App() {
       setProgressLabel(
         isSampleGeneration ? "已锁定方案，准备核心小样" : "小样已通过，准备完整歌曲",
       );
-      const generated = await automaticMusicProvider.generate(
-        renderBrief,
-        preferences,
-        ({ progress: value, label, stage }) => {
-          setProgress(Math.max(27, value));
-          setProgressLabel(label);
-          if (stage) {
-            setWorkflow((current) =>
-              activateWorkflowStep(current, "model", label),
+      const lyricSegments =
+        !isSampleGeneration &&
+        preferences.vocalStyle !== "instrumental" &&
+        !generationReference &&
+        generationDraft
+          ? compileLyricSegments(generationDraft)
+          : [];
+      const generated =
+        lyricSegments.length >= 2
+          ? await generateSegmentedSong({
+              provider: automaticMusicProvider,
+              client: localAudioClient,
+              brief: renderBrief,
+              preferences,
+              segments: lyricSegments,
+              onProgress: (value, label) => {
+                setProgress(Math.max(27, value));
+                setProgressLabel(label);
+                setWorkflow((current) =>
+                  activateWorkflowStep(current, "model", label),
+                );
+              },
+            })
+          : await automaticMusicProvider.generate(
+              renderBrief,
+              preferences,
+              ({ progress: value, label, stage }) => {
+                setProgress(Math.max(27, value));
+                setProgressLabel(label);
+                if (stage) {
+                  setWorkflow((current) =>
+                    activateWorkflowStep(current, "model", label),
+                  );
+                }
+              },
+              generationReference,
             );
-          }
-        },
-        generationReference,
-      );
       if (!generated.length) throw new Error("音乐模型没有返回可播放版本。");
       setWorkflow((current) =>
         activateWorkflowStep(
@@ -1257,6 +1405,12 @@ export default function App() {
                   displayedLyrics,
                   asset.durationSeconds,
                 ),
+          lyricLogicScore: lyricDraft?.professionalReport.score,
+          lyricFactAnchors: generationFactAnchors,
+          lyricAudit:
+            preferences.vocalStyle === "instrumental"
+              ? undefined
+              : { status: "processing", transcription: "" },
           tracks: result.tracks,
           reference: { ...reference },
           seed: result.seed,
@@ -1266,7 +1420,7 @@ export default function App() {
             status: masteringStatus,
             processedAt,
           },
-          stems: isSampleGeneration ? undefined : { status: "running" },
+          stems: { status: "running" },
         }),
       );
       setWorkflow((current) =>
@@ -1276,33 +1430,12 @@ export default function App() {
             "lyricTiming",
             preferences.vocalStyle === "instrumental"
               ? "纯音乐版本无需歌词时间轴"
-              : `${newVersions[0]?.lyricCues?.length ?? 0} 句歌词已完成智能估时`,
+              : "正在从真实人声识别唱词与逐句时间",
           ),
           "quality",
           "正在核验音频、版本、保存状态与歌词",
         ),
       );
-      const deliveryGates = newVersions.map((version) =>
-        evaluateDeliveryGate({
-          versionId: version.id,
-          audioAssetId: version.audioAssetId,
-          audioSaved: storedResults.some(
-            (stored) => stored.asset.id === version.audioAssetId,
-          ),
-          duration: version.duration ?? 0,
-          hasVocals: preferences.vocalStyle !== "instrumental",
-          lyrics: version.lyrics ?? [],
-          lyricCues: version.lyricCues ?? [],
-        }),
-      );
-      const failedChecks = deliveryGates.flatMap((gate) =>
-        gate.checks.filter((check) => !check.pass).map((check) => check.label),
-      );
-      if (failedChecks.length) {
-        throw new Error(
-          `交付检查未通过：${[...new Set(failedChecks)].join("、")}`,
-        );
-      }
       const storedAssets = storedResults.flatMap(({ asset, sourceAsset }) =>
         asset.id === sourceAsset.id ? [asset] : [asset, sourceAsset],
       );
@@ -1319,27 +1452,105 @@ export default function App() {
         firstStored.masteringStatus === "complete" ? "optimized" : "source",
       );
       await loadAudioAsset(firstStored.asset);
-      if (!isSampleGeneration) {
-        void Promise.all(
-          newVersions.map(async (version, index) => {
-            const sourceAsset = storedResults[index]?.asset;
-            if (!sourceAsset) return;
-            const sourceBlob = await localAudioStore.getBlob(sourceAsset);
-            if (!sourceBlob) {
-              throw new Error("完整混音已经保存，但分轨读取不到本机音频。");
-            }
-            await startStemSeparation({ version, sourceAsset, sourceBlob });
-          }),
-        ).catch(() => {
-          // Each stem task records its own failure without affecting the mix.
-        });
+
+      const verifiedVersions =
+        preferences.vocalStyle === "instrumental"
+          ? newVersions
+          : await Promise.all(
+              newVersions.map(async (version, index) => {
+                const sourceAsset = storedResults[index]?.asset;
+                if (!sourceAsset) {
+                  return {
+                    ...version,
+                    lyricAudit: {
+                      status: "failed" as const,
+                      transcription: "",
+                      error: "没有找到已保存的完整混音。",
+                    },
+                  };
+                }
+                const sourceBlob = await localAudioStore.getBlob(sourceAsset);
+                if (!sourceBlob) {
+                  return {
+                    ...version,
+                    lyricAudit: {
+                      status: "failed" as const,
+                      transcription: "",
+                      error: "完整混音已登记，但读取不到本机音频。",
+                    },
+                  };
+                }
+                return startStemSeparation({ version, sourceAsset, sourceBlob });
+              }),
+            );
+      setVersions((items) =>
+        items.map(
+          (version) =>
+            verifiedVersions.find((item) => item.id === version.id) ?? version,
+        ),
+      );
+      setWorkflow((current) =>
+        activateWorkflowStep(
+          completeWorkflowStep(
+            current,
+            "lyricTiming",
+            preferences.vocalStyle === "instrumental"
+              ? "纯音乐版本无需歌词时间轴"
+              : `${verifiedVersions.filter((version) => version.lyricAudit?.status === "passed").length}/${verifiedVersions.length} 个版本完成真实唱词对齐`,
+          ),
+          "quality",
+          "正在检查歌词逻辑、唱词一致度与中文吐字",
+        ),
+      );
+      const deliveryGates = verifiedVersions.map((version) => ({
+        versionId: version.id,
+        ...evaluateDeliveryGate({
+          versionId: version.id,
+          audioAssetId: version.audioAssetId,
+          audioSaved: storedResults.some(
+            (stored) => stored.asset.id === version.audioAssetId,
+          ),
+          duration: version.duration ?? 0,
+          hasVocals: preferences.vocalStyle !== "instrumental",
+          lyrics: version.lyrics ?? [],
+          lyricCues: version.lyricCues ?? [],
+          lyricLogicPassed:
+            preferences.vocalStyle === "instrumental" ||
+            (version.lyricLogicScore ?? 0) >= 65,
+          lyricAudit: version.lyricAudit,
+        }),
+      }));
+      const deliverableIds = new Set(
+        deliveryGates
+          .filter((gate) => gate.checks.every((check) => check.pass))
+          .map((gate) => gate.versionId),
+      );
+      const deliverableVersions = verifiedVersions.filter((version) =>
+        deliverableIds.has(version.id),
+      );
+      const failedChecks = deliveryGates.flatMap((gate) =>
+        gate.checks.filter((check) => !check.pass).map((check) => check.label),
+      );
+      if (!deliverableVersions.length) {
+        throw new Error(
+          `交付检查未通过：${[...new Set(failedChecks)].join("、")}`,
+        );
+      }
+      const adopted = deliverableVersions[0];
+      setSelectedVersion(adopted.id);
+      setAdoptedVersionId(adopted.id);
+      const adoptedAsset = storedResults.find(
+        (stored) => stored.versionId === adopted.id,
+      )?.asset;
+      if (adoptedAsset && adoptedAsset.id !== firstStored.asset.id) {
+        await loadAudioAsset(adoptedAsset);
       }
       setWorkflow((current) =>
         completeWorkflow(
           completeWorkflowStep(
             current,
             "quality",
-            `已核验 ${newVersions.length} 个版本：真实音频可播放、本机保存成功、歌词可跟唱`,
+            `已核验 ${verifiedVersions.length} 个候选，${deliverableVersions.length} 个通过歌词逻辑、真实唱词、中文吐字与逐句时间检查`,
           ),
         ),
       );
@@ -1353,8 +1564,10 @@ export default function App() {
               ? `${Math.round(firstStored.asset.durationSeconds)} 秒核心小样已保存`
               : `完整歌曲 ${newVersions[0]?.label ?? "新版本"} 已保存`,
             payload: {
-              versionIds: newVersions.map((version) => version.id),
-              audioAssetIds: storedResults.map((stored) => stored.asset.id),
+              versionIds: deliverableVersions.map((version) => version.id),
+              audioAssetIds: storedResults
+                .filter((stored) => deliverableIds.has(stored.versionId))
+                .map((stored) => stored.asset.id),
             },
           });
         } catch {
@@ -1364,9 +1577,7 @@ export default function App() {
       setAgentState("complete");
       setProgress(100);
       setProgressLabel(
-        generated.length > 1
-          ? `${generated.length} 个新版本已就绪`
-          : "新版本已就绪",
+        `${deliverableVersions.length}/${generated.length} 个候选通过严选`,
       );
       setTasks((items) =>
         items.map((task) =>
@@ -1503,6 +1714,7 @@ export default function App() {
         source: useCurrentLyrics ? "user" : "ai",
         bpm: direction.brief.bpm,
         targetSeconds: generationPreferences.duration,
+        originalIdea: creationSession.idea,
         vocalDelivery: generationPreferences.vocalDelivery,
         writingStyle: recommendedLyricWritingStyle({
           idea: creationSession.idea,
@@ -1582,6 +1794,26 @@ export default function App() {
     });
   };
 
+  const changeLyricAbstraction = (abstractionLevel: LyricAbstractionLevel) => {
+    setLyricDraft((current) => {
+      if (!current || current.abstractionLevel === abstractionLevel) return current;
+      const nextDraft = { ...current, abstractionLevel };
+      setCreationSession((session) =>
+        session
+          ? updateCreationStageDraft(session, "lyrics-vocal", { draft: nextDraft })
+          : session,
+      );
+      announce(
+        abstractionLevel === "direct"
+          ? "已切到直接表达；改写时会优先保留人物、事实和结论。"
+          : abstractionLevel === "poetic"
+            ? "已切到诗意表达；仍会锁住关键事实，只增加一条贯穿意象。"
+            : "已切到事实加留白；这是当前推荐的专业平衡。",
+      );
+      return nextDraft;
+    });
+  };
+
   const rewriteLyricsInSelectedStyle = async () => {
     if (!creationSession || !lyricDraft || !plan || agentState === "thinking")
       return;
@@ -1607,6 +1839,8 @@ export default function App() {
           `请根据原始创意重新起草可演唱的中文歌词。`,
           `原始创意：${creationSession.idea}`,
           `歌词写法：${styleLabel}`,
+          `抽象程度：${lyricDraft.abstractionLevel === "direct" ? "直接讲清楚" : lyricDraft.abstractionLevel === "poetic" ? "诗意但只使用一个贯穿意象" : "保留事实并适度留白"}`,
+          `必须保留的事实：${lyricDraft.professionalReport.factAnchors.join("、") || "无"}`,
           `当前歌词只作内容参考，不要逐字复制：${lyricDraft.lines.map((line) => line.text).join(" / ")}`,
           `要求每行一句、句子简洁、保留清晰故事线，并适配 ${generationPreferences.duration} 秒歌曲。`,
         ].join("\n"),
@@ -1621,6 +1855,7 @@ export default function App() {
         targetSeconds: generationPreferences.duration,
         vocalDelivery: generationPreferences.vocalDelivery,
         writingStyle: lyricDraft.writingStyle,
+        originalIdea: creationSession.idea,
       });
       const previousDrafts = [...lyricDraftHistory, lyricDraft].slice(-8);
       setLyricDraftHistory(previousDrafts);
@@ -1712,6 +1947,10 @@ export default function App() {
 
   const approveLyrics = () => {
     if (!creationSession || !lyricDraft) return;
+    if (!lyricDraft.professionalReport.canApprove) {
+      announce("专业歌词检查还没通过：请先补齐关键事实、段落推进和可唱性。");
+      return;
+    }
     try {
       const nextSession = transitionCreationSession(creationSession, {
         type: "APPROVE_LYRICS",
@@ -2363,9 +2602,80 @@ export default function App() {
     });
   };
 
+  const requestProjectCleanup = () => {
+    const projectAssets = assets.filter((asset) => asset.projectId === projectId);
+    const jobIds = new Set(
+      versions.flatMap((version) =>
+        [version.stems?.jobId, version.lyricAudit?.jobId].filter(
+          (jobId): jobId is string => Boolean(jobId),
+        ),
+      ),
+    );
+    setPendingDeletion({
+      kind: "project",
+      id: projectId,
+      name: `${projectTitle}的全部旧生成结果`,
+      detail: `将永久删除 ${versions.length} 个版本、${projectAssets.length} 份本机音频和 ${jobIds.size} 个本机处理任务；创意、方向、歌词草稿和生成偏好会保留。`,
+    });
+  };
+
   const confirmDeletion = async () => {
     const pending = pendingDeletion;
     if (!pending) return;
+    if (pending.kind === "project") {
+      const projectAssets = assets.filter((asset) => asset.projectId === projectId);
+      const jobIds = [
+        ...new Set(
+          versions.flatMap((version) =>
+            [version.stems?.jobId, version.lyricAudit?.jobId].filter(
+              (jobId): jobId is string => Boolean(jobId),
+            ),
+          ),
+        ),
+      ];
+      try {
+        await localAudioStore.deleteMany(projectAssets);
+        await Promise.all(jobIds.map((jobId) => localAudioClient.deleteJob(jobId)));
+        clearCurrentAudio();
+        setAssets((items) => items.filter((asset) => asset.projectId !== projectId));
+        setVersions([]);
+        setTasks([]);
+        setTracks([]);
+        setLastGeneratedVersionIds([]);
+        setSelectedVersion("");
+        setAdoptedVersionId("");
+        setWorkflow(createIdleWorkflow());
+        setAgentState("idle");
+        setProgress(0);
+        setProgressLabel("旧生成结果已清空，可以重新制作");
+        setCreationSession((session) => {
+          if (!session) return session;
+          const stageDrafts = { ...session.stageDrafts };
+          delete stageDrafts.sample;
+          delete stageDrafts["full-song"];
+          delete stageDrafts.editing;
+          delete stageDrafts.delivered;
+          return {
+            ...session,
+            currentStage: "sample",
+            updatedAt: new Date().toISOString(),
+            stageDrafts,
+            stages: {
+              ...session.stages,
+              sample: { ...session.stages.sample, status: "DRAFT", summary: undefined, error: undefined },
+              "full-song": { ...session.stages["full-song"], status: "DRAFT", summary: undefined, error: undefined },
+              editing: { ...session.stages.editing, status: "DRAFT", summary: undefined, error: undefined },
+              delivered: { ...session.stages.delivered, status: "DRAFT", summary: undefined, error: undefined },
+            },
+          };
+        });
+        setPendingDeletion(null);
+        announce("旧版本、旧音频和旧任务已删除；创意、歌词草稿与制作设置仍然保留。 ");
+      } catch (error) {
+        announce(error instanceof Error ? error.message : "旧生成结果没有清理完整。");
+      }
+      return;
+    }
     if (pending.kind === "asset") {
       const asset = assets.find((item) => item.id === pending.id);
       if (!asset) {
@@ -2589,6 +2899,7 @@ export default function App() {
                   onLyricsChange={setLyrics}
                   onSelectVersion={selectVersion}
                   onDeleteVersion={requestVersionDeletion}
+                  onClearGenerated={requestProjectCleanup}
                   audioVariant={audioVariant}
                   remasteringVersionId={remasteringVersionId}
                   onSelectAudioVariant={selectAudioVariant}
@@ -2646,6 +2957,7 @@ export default function App() {
               onReturnToIdea={returnToIdea}
               onChangeLyricLine={changeLyricLine}
               onSelectLyricWritingStyle={selectLyricWritingStyle}
+              onChangeLyricAbstraction={changeLyricAbstraction}
               onRewriteLyrics={() => void rewriteLyricsInSelectedStyle()}
               onUndoLyricRewrite={undoLyricRewrite}
               canUndoLyricRewrite={lyricDraftHistory.length > 0}
@@ -2715,8 +3027,29 @@ export default function App() {
         <CompareDialog
           versions={versions}
           selectedVersion={selectedVersion}
-          onSelectVersion={(versionId) => {
-            selectVersion(versionId);
+          adoptedVersionId={adoptedVersionId}
+          isPlaying={isPlaying}
+          currentTime={currentTime}
+          duration={audioDuration}
+          onToggleAudition={(versionId) => {
+            if (selectedVersion !== versionId) {
+              void selectVersion(versionId, true);
+              return;
+            }
+            void handleTogglePlay();
+          }}
+          onRestart={(versionId) => {
+            if (selectedVersion !== versionId) {
+              void selectVersion(versionId, true);
+              return;
+            }
+            handleSeek(0);
+            if (!isPlaying) void handleTogglePlay();
+          }}
+          onAdopt={(versionId) => {
+            setAdoptedVersionId(versionId);
+            void selectVersion(versionId);
+            announce(`已正式采用${versions.find((version) => version.id === versionId)?.label ?? "这个版本"}；另一版仍然保留。`);
           }}
           onClose={() => setDialog(null)}
         />
@@ -2775,6 +3108,11 @@ function makeId() {
 }
 function safeFileName(value: string) {
   return value.replace(/[\\/:*?"<>|]/g, "-");
+}
+function normalizeAuditText(value: string) {
+  return verbalizeNumbers(value)
+    .replace(/(?<=[零一二三四五六七八九])比(?=[零一二三四五六七八九])/g, "")
+    .replace(/[^\p{L}\p{N}]/gu, "");
 }
 function waitForAudioMetadata(audio: HTMLAudioElement) {
   if (audio.readyState >= HTMLMediaElement.HAVE_METADATA) {

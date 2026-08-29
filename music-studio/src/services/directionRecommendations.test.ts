@@ -53,4 +53,16 @@ describe("direction recommendations", () => {
     createDirectionRecommendations(plan, DEFAULT_GENERATION_PREFERENCES);
     expect(plan).toEqual(before);
   });
+
+  it("caps the clear-lyric safe direction so Mandarin has room to articulate", () => {
+    const fastPlan = {
+      ...plan,
+      brief: { ...plan.brief, bpm: 148 },
+    };
+    const directions = createDirectionRecommendations(
+      fastPlan,
+      { ...DEFAULT_GENERATION_PREFERENCES, lyricClarity: "clear" },
+    );
+    expect(directions.find((item) => item.kind === "safe")?.brief.bpm).toBe(108);
+  });
 });

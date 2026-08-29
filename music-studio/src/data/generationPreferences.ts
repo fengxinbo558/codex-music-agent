@@ -16,7 +16,7 @@ export const DEFAULT_GENERATION_PREFERENCES: GenerationPreferences = {
   lyricClarity: "clear",
   lyricsMode: "auto",
   creativity: "balanced",
-  variantCount: 1,
+  variantCount: 2,
   toneProfile: "warm",
 };
 
@@ -82,8 +82,7 @@ export function summarizePreferences(preferences: GenerationPreferences) {
 }
 
 export function estimateGenerationTime(preferences: GenerationPreferences) {
-  const base =
-    preferences.duration === 30 ? 1 : preferences.duration === 60 ? 2 : 3;
+  const base = Math.max(1, Math.ceil(preferences.duration / 30));
   const max = base * preferences.variantCount;
   return preferences.variantCount === 1
     ? `大约 ${base} 分钟`
@@ -104,6 +103,9 @@ export function getContentFitNotice(
     30: 90,
     60: 180,
     90: 270,
+    120: 360,
+    180: 540,
+    240: 720,
   }[preferences.duration];
   if (characters <= comfortableCharacters) return null;
 
@@ -114,7 +116,13 @@ export function getContentFitNotice(
         : 90
       : preferences.duration === 60
         ? 90
-        : null;
+        : preferences.duration === 90
+          ? 120
+          : preferences.duration === 120
+            ? 180
+            : preferences.duration === 180
+              ? 240
+              : null;
   const action = suggestedDuration
     ? `建议改成 ${suggestedDuration} 秒。`
     : "建议精简文字，或分成两次续写。";

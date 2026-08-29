@@ -19,6 +19,7 @@ type BottomWorkspaceProps = {
   onLyricsChange: (lyrics: string[]) => void;
   onSelectVersion: (versionId: string) => void;
   onDeleteVersion: (versionId: string) => void;
+  onClearGenerated: () => void;
   audioVariant: AudioVariant;
   remasteringVersionId: string | null;
   onSelectAudioVariant: (variant: AudioVariant) => void;
@@ -43,6 +44,7 @@ export function BottomWorkspace({
   onLyricsChange,
   onSelectVersion,
   onDeleteVersion,
+  onClearGenerated,
   audioVariant,
   remasteringVersionId,
   onSelectAudioVariant,
@@ -50,6 +52,7 @@ export function BottomWorkspace({
   onCompare,
 }: BottomWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<StudioBottomTab>("lyrics");
+  const currentVersion = versions.find((version) => version.id === selectedVersion);
   return (
     <section className="bottom-workspace" aria-label="作品编辑区">
       <div className="editor-tabs" role="tablist" aria-label="底部编辑器">
@@ -120,15 +123,27 @@ export function BottomWorkspace({
           aria-labelledby="mixer-tab"
           className="capability-locked"
         >
-          <span aria-hidden="true">◫</span>
+          <span aria-hidden="true">{currentVersion?.stems?.status === "ready" ? "✓" : "◫"}</span>
           <div>
-            <strong>真实分轨尚未接通</strong>
+            <strong>
+              {currentVersion?.stems?.status === "ready"
+                ? "四条真实分轨已经接通"
+                : currentVersion?.stems?.status === "running"
+                  ? "正在分离真实音轨"
+                  : "先生成完整歌曲，再建立真实分轨"}
+            </strong>
             <p>
-              ACE-Step 当前返回的是一份混合
-              WAV，不是真正独立的人声、鼓、贝斯和乐器音轨。
-              因此这里不会提供无效的音量与声像滑杆。
+              {currentVersion?.stems?.status === "ready"
+                ? "人声、鼓、贝斯和其他乐器都是真实 WAV；可在上方时间线逐轨试听，人声轨还用于歌词对齐与逐句音高编辑。"
+                : "没有真实分轨时不会显示装饰性滑杆，也不会假装已经能混音。"}
             </p>
-            <small>后续接入分轨模型后，这里会自动开放真实混音。</small>
+            <small>
+              {currentVersion?.lyricAudit?.status === "passed"
+                ? "实际唱词、吐字和逐句时间已经通过检查。"
+                : currentVersion?.lyricAudit?.status === "failed"
+                  ? "分轨可用，但唱词或吐字未通过；请看跟唱歌词中的差异。"
+                  : "分轨完成后会自动进行真实歌词质检。"}
+            </small>
           </div>
         </div>
       ) : null}
@@ -150,6 +165,14 @@ export function BottomWorkspace({
               onClick={onCompare}
             >
               A / B 对比
+            </button>
+            <button
+              className="danger-subtle-action"
+              type="button"
+              disabled={versions.length === 0}
+              onClick={onClearGenerated}
+            >
+              清空生成结果
             </button>
           </div>
           <div className="version-cards">

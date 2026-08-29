@@ -6,11 +6,11 @@ import type {
   VocalPerformanceCue,
   VocalTechnique,
 } from "../types";
-
-const SECTION_SEQUENCE = ["主歌", "主歌", "预副歌", "副歌", "副歌", "桥段", "终副歌", "尾奏"];
+import { buildLyricStorySkeleton, evaluateLyricProfessionalism } from "./lyricProfessionalism";
 
 export function createLyricVocalDraft(input: {
   lyrics: string[];
+  originalIdea?: string;
   source: "user" | "ai";
   bpm: number;
   targetSeconds: number;
@@ -20,14 +20,19 @@ export function createLyricVocalDraft(input: {
   const cleanLyrics = input.lyrics.map((line) => line.trim()).filter(Boolean);
   const lines = cleanLyrics.map<LyricDraftLine>((text, index) => ({
     id: `line-${index + 1}`,
-    section: SECTION_SEQUENCE[Math.min(index, SECTION_SEQUENCE.length - 1)],
+    section: sectionForLine(index, cleanLyrics.length),
     text,
     source: input.source,
     warnings: lineWarnings(text, input.bpm, cleanLyrics.length, input.targetSeconds),
   }));
+  const originalIdea = input.originalIdea?.trim() || cleanLyrics.join("。 ");
   return {
     id: `lyrics-${Date.now()}`,
     writingStyle: input.writingStyle ?? "conversational",
+    abstractionLevel: "balanced",
+    originalIdea,
+    skeleton: buildLyricStorySkeleton({ idea: originalIdea, lines }),
+    professionalReport: evaluateLyricProfessionalism({ idea: originalIdea, lines }),
     lines,
     vocalCues: lines.flatMap((line, index) =>
       recommendedCues(line, index, lines.length, input.vocalDelivery),
@@ -61,6 +66,8 @@ export function updateLyricLine(
     lines,
     vocalCues: cues,
     estimatedSeconds: estimateLyricsDuration(lines, bpm),
+    skeleton: buildLyricStorySkeleton({ idea: draft.originalIdea, lines }),
+    professionalReport: evaluateLyricProfessionalism({ idea: draft.originalIdea, lines }),
   };
 }
 
@@ -195,4 +202,15 @@ function recommendationReason(technique: VocalTechnique, section: string) {
   if (technique === "restrained") return "开头先留空间，后面才有推进";
   if (technique === "explosive") return "接近情绪峰值，增加前后反差";
   return "尾句延长能让旋律自然收束";
+}
+
+function sectionForLine(index: number, lineCount: number) {
+  if (lineCount <= 1) return "副歌";
+  const ratio = index / lineCount;
+  if (ratio < 0.22) return "主歌一";
+  if (ratio < 0.44) return "主歌二";
+  if (ratio < 0.55) return "预副歌";
+  if (ratio < 0.75) return "副歌";
+  if (ratio < 0.86) return "桥段";
+  return "终副歌";
 }

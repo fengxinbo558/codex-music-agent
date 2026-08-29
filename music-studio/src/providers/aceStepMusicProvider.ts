@@ -289,12 +289,14 @@ function createMusicPrompt(
     brief.genre,
     brief.mood,
     vocalDirection,
-    `${brief.bpm} BPM`,
-    brief.key,
     `instruments: ${brief.instruments.join(", ")}`,
     `structure: ${brief.structure.join(", ")}`,
     brief.summary,
     preferences.vocalStyle === "instrumental" ? "" : brief.vocalMode,
+    preferences.vocalStyle !== "instrumental" &&
+    preferences.lyricClarity === "clear"
+      ? "sing only the supplied Mandarin lyrics in exact order, no paraphrased, added, omitted, or repeated words"
+      : "",
     toneDirection,
   ]
     .filter(Boolean)

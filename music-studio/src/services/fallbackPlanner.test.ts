@@ -55,6 +55,20 @@ describe("createFallbackPlan", () => {
     expect(plan.brief.lyrics.every((line) => line.length <= 18)).toBe(true);
   });
 
+  it("compresses long sports copy into a coherent, singable full-song draft", () => {
+    const plan = createFallbackPlan({
+      projectId: "demo",
+      prompt: "把法甲这段巴黎对里尔的评论写成歌，巴黎要冲欧冠三连冠，里尔卖掉1亿欧核心，巴黎今晚必须发力。",
+      vocalDelivery: "angryRock",
+      selection: [],
+      currentProject: { bpm: 92, key: "A minor", selectedVersion: "v3" },
+    });
+    expect(plan.brief.lyrics.length).toBeGreaterThanOrEqual(10);
+    expect(plan.brief.lyrics.length).toBeLessThanOrEqual(13);
+    expect(plan.brief.lyrics.join("\n")).toContain("因为已有5支球队拿三分");
+    expect(plan.brief.lyrics.at(-1)).toBe("这里还是七姐聊球");
+  });
+
   it("honors a novice's selected lyric writing route", () => {
     const plan = createFallbackPlan({
       projectId: "demo",

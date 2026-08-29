@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from dataclasses import asdict
 from pathlib import Path
@@ -10,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from .assets import AssetRegistry
+from .alignment import align_audio
 from .jobs import JobManager
 from .mix import mix_stems
 from .pitch import analyze_pitch, shift_pitch_region
@@ -50,6 +52,11 @@ def health() -> dict[str, object]:
         demucs_ready = True
     except ImportError:
         demucs_ready = False
+    try:
+        import mlx_whisper  # noqa: F401
+        alignment_ready = True
+    except ImportError:
+        alignment_ready = False
     return {
         "status": "ok",
         "service": "music-workroom-local-audio",
@@ -57,8 +64,42 @@ def health() -> dict[str, object]:
             "stems": demucs_ready,
             "pitch_analysis": True,
             "pitch_shift": True,
+            "lyric_alignment": alignment_ready,
         },
     }
+
+
+@app.post("/local-audio/align-lyrics", status_code=202)
+async def align_lyrics_endpoint(
+    audio: UploadFile = File(...),
+    lyrics: str = Form(...),
+    key_terms: str = Form("[]"),
+) -> dict[str, object]:
+    try:
+        parsed_lyrics = json.loads(lyrics)
+        parsed_terms = json.loads(key_terms)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(422, "lyrics and key_terms must be JSON arrays") from exc
+    if not isinstance(parsed_lyrics, list) or not all(isinstance(item, str) for item in parsed_lyrics):
+        raise HTTPException(422, "lyrics must be a JSON array of strings")
+    if not parsed_lyrics:
+        raise HTTPException(422, "lyrics cannot be empty")
+    if not isinstance(parsed_terms, list) or not all(isinstance(item, str) for item in parsed_terms):
+        raise HTTPException(422, "key_terms must be a JSON array of strings")
+    job = jobs.create("lyric-alignment")
+    job_directory = DATA_ROOT / "jobs" / job.id
+    job_directory.mkdir(parents=True, exist_ok=False)
+    source = job_directory / "vocals.wav"
+    await save_upload(audio, source)
+
+    async def operation(active_job):
+        jobs.update(active_job, 15, "正在用真实人声识别唱出的文字")
+        result = await asyncio.to_thread(align_audio, source, parsed_lyrics, parsed_terms)
+        active_job.result = result
+        jobs.update(active_job, 98, "真实唱词、咬字与逐句时间已经核验")
+
+    jobs.start(job, operation)
+    return job_payload(job)
 
 
 @app.post("/local-audio/stems", status_code=202)
@@ -177,9 +218,12 @@ def get_job(job_id: str) -> dict[str, object]:
 
 
 @app.delete("/local-audio/jobs/{job_id}")
-def cancel_job(job_id: str) -> dict[str, object]:
+def delete_job(job_id: str) -> dict[str, object]:
     try:
-        return job_payload(jobs.cancel(job_id))
+        payload = job_payload(jobs.cancel(job_id))
+        registry.delete_job_directory(job_id)
+        jobs.delete(job_id)
+        return {**payload, "deleted": True}
     except KeyError as exc:
         raise HTTPException(404, "Unknown job") from exc
 

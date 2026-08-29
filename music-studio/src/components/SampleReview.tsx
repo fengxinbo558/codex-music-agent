@@ -106,8 +106,14 @@ export function SampleReview({
         <button type="button" onClick={() => onReviseSample("情绪更克制，减少嘶吼")}>更克制</button>
         <button type="button" onClick={onBackToLyrics}>修改歌词 / 唱法</button>
       </div>
-      <button type="button" className="stage-primary-action" onClick={onApproveSample}>
-        满意，继续生成整首 <span aria-hidden="true">→</span>
+      <button
+        type="button"
+        className="stage-primary-action"
+        disabled={currentVersion?.lyricAudit?.status !== "passed"}
+        title={currentVersion?.lyricAudit?.status === "passed" ? undefined : "先让实际唱词、吐字和歌词时间轴通过检查"}
+        onClick={onApproveSample}
+      >
+        {currentVersion?.lyricAudit?.status === "passed" ? "满意，继续生成整首" : "真实歌词质检未通过"} <span aria-hidden="true">→</span>
       </button>
     </section>
   );

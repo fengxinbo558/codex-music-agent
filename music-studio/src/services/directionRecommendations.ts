@@ -10,7 +10,11 @@ export function createDirectionRecommendations(
   preferences: GenerationPreferences,
 ): DirectionCandidate[] {
   const base = plan.brief;
-  const safeBpm = clamp(Math.round(base.bpm * 0.9), 68, 118);
+  const safeBpm = clamp(
+    Math.round(base.bpm * 0.9),
+    68,
+    preferences.lyricClarity === "clear" ? 108 : 118,
+  );
   const boldBpm = clamp(base.bpm + (base.bpm >= 125 ? 10 : 16), 88, 168);
   const durationSeconds = preferences.duration;
   return [

@@ -23,6 +23,7 @@ export function createFallbackPlan(
   const isAngryRock = request.vocalDelivery === "angryRock";
   const isExtremeScream = request.vocalDelivery === "extremeScream";
   const isAggressive = isAngryRock || isExtremeScream;
+  const isSportsCommentary = includesAny(prompt, ["法甲", "欧冠", "里尔", "巴黎", "聊球"]);
   const bpm = isExtremeScream
     ? 148
     : isAngryRock
@@ -52,9 +53,13 @@ export function createFallbackPlan(
     warning: "智能规划暂未连接，本次由本机音乐规划器完成。",
     brief: {
       title: isExtremeScream
-        ? "撕开沉默"
+        ? isSportsCommentary
+          ? "今晚必须发力"
+          : "撕开沉默"
         : isAngryRock
-          ? "不再低头"
+          ? isSportsCommentary
+            ? "今晚必须发力"
+            : "不再低头"
           : isNight
             ? "雨停以前"
             : isWarm
@@ -134,7 +139,45 @@ function fallbackLyrics(
   delivery: PlanMusicRequest["vocalDelivery"],
   prompt: string,
 ) {
-  if (prompt.includes("歌词写法：对话体")) {
+  if (includesAny(prompt, ["法甲", "欧冠", "里尔", "巴黎", "聊球"])) {
+    if (
+      !includesAny(prompt, [
+        "托雷斯",
+        "雷恩",
+        "5支",
+        "五支",
+        "1亿欧",
+        "十字韧带",
+      ])
+    ) {
+      return [
+        theme,
+        "这一场谁都不能走神",
+        "主场的灯已经亮起",
+        "比分还没有写下结局",
+        "因为每一步都算数",
+        "今晚必须拿出回应",
+        "把判断交给终场哨声",
+        "这里唱的是我的观点",
+      ];
+    }
+    return [
+      "最近七姐状态不错",
+      "今晚只看这一场法甲",
+      "巴黎瞄准欧冠三连冠",
+      "托雷斯首轮梅开二度",
+      "里尔卖掉1亿欧核心",
+      "十字韧带又添伤口",
+      "虽然巴黎被雷恩逼平",
+      "今晚不能继续走神",
+      "因为已有5支球队拿三分",
+      "巴黎已经没有退路",
+      "只要巴黎今晚真发力",
+      "里尔主场也挡不住",
+      "这里还是七姐聊球",
+    ];
+  }
+  if (prompt.includes("歌词写法：像当面说给他听") || prompt.includes("歌词写法：对话体")) {
     return [
       "你说 最近是不是太安静",
       "我说 只是有些话没发出去",
@@ -144,7 +187,7 @@ function fallbackLyrics(
       "没说完的话却唱到天亮",
     ];
   }
-  if (prompt.includes("歌词写法：现代诗意象")) {
+  if (prompt.includes("歌词写法：用一个意象贯穿") || prompt.includes("歌词写法：现代诗意象")) {
     return [
       "路灯把雨折进后视镜",
       "空座位还留着你的影子",
@@ -154,7 +197,7 @@ function fallbackLyrics(
       "等一句回声替你靠近",
     ];
   }
-  if (prompt.includes("歌词写法：散文感")) {
+  if (prompt.includes("歌词写法：把细节写成一封信") || prompt.includes("歌词写法：散文感")) {
     return [
       "那天你走得很慢 像在等我开口",
       "我记得街边的灯刚好一盏盏亮起",
@@ -164,7 +207,7 @@ function fallbackLyrics(
       "只是终于学会把想念说清楚",
     ];
   }
-  if (prompt.includes("歌词写法：口语叙事")) {
+  if (prompt.includes("歌词写法：把故事唱清楚") || prompt.includes("歌词写法：口语叙事")) {
     return [
       "我又绕回我们走过的那条街",
       "手机里那句话还是没有发出去",
@@ -174,7 +217,7 @@ function fallbackLyrics(
       "我才承认有些告别没有过去",
     ];
   }
-  if (prompt.includes("歌词写法：短句钩子")) {
+  if (prompt.includes("歌词写法：先做一句能记住的副歌") || prompt.includes("歌词写法：短句钩子")) {
     return [
       "别替沉默认错",
       "别再低头",

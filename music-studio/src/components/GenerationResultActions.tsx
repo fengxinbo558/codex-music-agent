@@ -38,6 +38,12 @@ export function GenerationResultActions({
   onRemasterVersion,
   onCompare,
 }: GenerationResultActionsProps) {
+  const orderedVersions = currentVersion
+    ? [
+        currentVersion,
+        ...versions.filter((version) => version.id !== currentVersion.id),
+      ]
+    : versions;
   if (hasError) {
     return (
       <section className="generation-failure" aria-labelledby="failure-title">
@@ -57,13 +63,37 @@ export function GenerationResultActions({
   return (
     <section className="result-actions" aria-labelledby="next-actions-title">
       {currentVersion ? (
-        <ToneVersionControls
-          version={currentVersion}
-          audioVariant={audioVariant}
-          isRemastering={remasteringVersionId === currentVersion.id}
-          onSelectAudioVariant={onSelectAudioVariant}
-          onRemaster={() => onRemasterVersion(currentVersion.id)}
-        />
+        <>
+          <ToneVersionControls
+            version={currentVersion}
+            audioVariant={audioVariant}
+            isRemastering={remasteringVersionId === currentVersion.id}
+            onSelectAudioVariant={onSelectAudioVariant}
+            onRemaster={() => onRemasterVersion(currentVersion.id)}
+          />
+          {currentVersion.lyricAudit ? (
+            <section className={`result-quality is-${currentVersion.lyricAudit.status}`}>
+              <header>
+                <span>真实歌词质检</span>
+                <strong>{qualityStatusLabel(currentVersion.lyricAudit.status)}</strong>
+              </header>
+              {currentVersion.lyricAudit.quality ? (
+                <dl>
+                  <div><dt>唱词一致</dt><dd>{percent(currentVersion.lyricAudit.quality.overallMatch)}</dd></div>
+                  <div><dt>无额外乱唱</dt><dd>{percent(currentVersion.lyricAudit.quality.textPrecision ?? 0)}</dd></div>
+                  <div><dt>句子覆盖</dt><dd>{percent(currentVersion.lyricAudit.quality.lineCoverage)}</dd></div>
+                  <div><dt>重点词</dt><dd>{percent(currentVersion.lyricAudit.quality.keyTermMatch)}</dd></div>
+                  <div><dt>吐字置信</dt><dd>{percent(currentVersion.lyricAudit.quality.averageConfidence)}</dd></div>
+                  <div><dt>自然识别支持</dt><dd>{percent(currentVersion.lyricAudit.quality.unbiasedMatch ?? 0)}</dd></div>
+                  <div><dt>有效演唱覆盖</dt><dd>{percent(currentVersion.lyricAudit.quality.vocalCoverage)}</dd></div>
+                </dl>
+              ) : null}
+              {currentVersion.lyricAudit.quality?.warnings.length ? (
+                <p>{currentVersion.lyricAudit.quality.warnings.join("；")}</p>
+              ) : currentVersion.lyricAudit.error ? <p>{currentVersion.lyricAudit.error}</p> : null}
+            </section>
+          ) : null}
+        </>
       ) : null}
       {versions.length > 1 ? (
         <div className="quick-version-switch">
@@ -72,7 +102,7 @@ export function GenerationResultActions({
             <strong>先听听哪一版更对</strong>
           </div>
           <div role="group" aria-label="本次生成的两个版本">
-            {versions.slice(0, 2).map((version, index) => (
+            {orderedVersions.slice(0, 2).map((version, index) => (
               <button
                 key={version.id}
                 className={selectedVersion === version.id ? "is-selected" : ""}
@@ -84,7 +114,11 @@ export function GenerationResultActions({
                 <span>
                   <strong>{version.label}</strong>
                   <small>
-                    {selectedVersion === version.id ? "正在试听" : "切换试听"}
+                    {version.lyricAudit?.status === "passed"
+                      ? selectedVersion === version.id
+                        ? "已通过 · 正在试听"
+                        : "已通过 · 切换试听"
+                      : "未通过 · 仅供复听"}
                   </small>
                 </span>
               </button>
@@ -128,4 +162,17 @@ export function GenerationResultActions({
       </div>
     </section>
   );
+}
+
+function qualityStatusLabel(status: NonNullable<ProjectVersion["lyricAudit"]>["status"]) {
+  return {
+    processing: "正在听真实人声",
+    passed: "全部质量门已通过",
+    warning: "需要人工复听",
+    failed: "未通过，不能交付",
+  }[status];
+}
+
+function percent(value: number) {
+  return `${Math.round(value * 100)}%`;
 }

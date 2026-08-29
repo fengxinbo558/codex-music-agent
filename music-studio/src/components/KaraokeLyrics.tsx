@@ -47,7 +47,7 @@ export function KaraokeLyrics({
         {!isInstrumental && cues.length ? (
           <span className="timing-source">
             {cues.every((cue) => cue.source === "aligned")
-              ? "模型时间轴"
+              ? "真实人声对齐"
               : "智能估时"}
           </span>
         ) : null}
@@ -60,13 +60,22 @@ export function KaraokeLyrics({
             <button
               ref={index === activeIndex ? activeRef : undefined}
               key={cue.id}
-              className={index === activeIndex ? "is-active" : ""}
+              className={`${index === activeIndex ? "is-active" : ""} ${(cue.matchRatio ?? 1) < 0.6 ? "has-mismatch" : ""}`}
               type="button"
               aria-current={index === activeIndex ? "true" : undefined}
               onClick={() => onSeek(cue.start)}
             >
               <time>{formatCueTime(cue.start)}</time>
-              <span>{cue.text}</span>
+              <span>
+                {cue.text}
+                {cue.source === "aligned" && (cue.matchRatio ?? 1) < 0.88 ? (
+                  <small>
+                    {cue.observedText
+                      ? `实际听到：${cue.observedText}`
+                      : "这一句没有可靠听到，疑似漏唱"}
+                  </small>
+                ) : null}
+              </span>
             </button>
           ))}
         </div>
@@ -76,6 +85,11 @@ export function KaraokeLyrics({
       {cues.some((cue) => cue.source === "estimated") ? (
         <p className="karaoke-note">
           当前按句长和歌曲时长智能估时；点击任意一句可以跳到对应位置。
+        </p>
+      ) : null}
+      {cues.some((cue) => cue.source === "aligned" && (cue.matchRatio ?? 1) < 0.88) ? (
+        <p className="karaoke-note is-warning">
+          带警告的句子没有被强行套时间；可对照“实际听到”判断错唱、漏唱或吐字不清。
         </p>
       ) : null}
       {!isInstrumental && onApplyPitch ? (

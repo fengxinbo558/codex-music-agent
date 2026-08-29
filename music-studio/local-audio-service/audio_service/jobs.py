@@ -85,6 +85,18 @@ class JobManager:
         self._save(job)
         return job
 
+    def delete(self, job_id: str) -> None:
+        job = self.jobs.pop(job_id, None)
+        if not job:
+            raise KeyError(job_id)
+        task = self.tasks.pop(job_id, None)
+        if task and not task.done():
+            task.cancel()
+        state_file = (self.root / f"{job_id}.json").resolve()
+        if state_file.parent != self.root:
+            raise ValueError("Invalid job state path")
+        state_file.unlink(missing_ok=True)
+
     def _save(self, job: AudioJob) -> None:
         path = self.root / f"{job.id}.json"
         temporary = path.with_suffix(".tmp")

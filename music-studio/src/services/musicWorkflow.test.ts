@@ -45,11 +45,56 @@ describe("music workflow", () => {
       hasVocals: true,
       lyrics: ["第一句"],
       lyricCues: [
-        { id: "l1", text: "第一句", start: 2, end: 8, source: "estimated" },
+        { id: "l1", text: "第一句", start: 2, end: 8, source: "aligned" },
       ],
+      lyricLogicPassed: true,
+      lyricAudit: {
+        status: "passed",
+        transcription: "第一句",
+        quality: {
+          status: "passed",
+          overallMatch: 1,
+          lineCoverage: 1,
+          keyTermMatch: 1,
+          averageConfidence: 0.9,
+          vocalCoverage: 0.8,
+          matchedKeyTerms: [],
+          warnings: [],
+        },
+      },
     });
 
     expect(incomplete.ready).toBe(false);
     expect(ready.ready).toBe(true);
+  });
+
+  it("never delivers a vocal song with estimated subtitle timing", () => {
+    const result = evaluateDeliveryGate({
+      versionId: "v2",
+      audioAssetId: "a2",
+      audioSaved: true,
+      duration: 60,
+      hasVocals: true,
+      lyrics: ["巴黎今晚必须发力"],
+      lyricCues: [
+        { id: "l1", text: "巴黎今晚必须发力", start: 2, end: 8, source: "estimated" },
+      ],
+      lyricLogicPassed: true,
+      lyricAudit: {
+        status: "passed",
+        transcription: "巴黎今晚必须发力",
+        quality: {
+          status: "passed",
+          overallMatch: 1,
+          lineCoverage: 1,
+          keyTermMatch: 1,
+          averageConfidence: 0.9,
+          vocalCoverage: 0.8,
+          matchedKeyTerms: [],
+          warnings: [],
+        },
+      },
+    });
+    expect(result.ready).toBe(false);
   });
 });

@@ -1,4 +1,9 @@
-import type { LocalAudioHealth, LocalAudioJob } from "../types";
+import type {
+  LocalAudioHealth,
+  LocalAudioJob,
+  LyricAlignmentQuality,
+  LyricCue,
+} from "../types";
 
 const DIRECT_LOCAL_AUDIO_ORIGIN = "http://127.0.0.1:8002";
 
@@ -28,6 +33,21 @@ export class LocalAudioClient {
     const form = new FormData();
     form.append("audio", blob, filename);
     return this.requestJob("/local-audio/stems", form);
+  }
+
+  async alignLyrics(input: {
+    blob: Blob;
+    filename: string;
+    lyrics: string[];
+    keyTerms: string[];
+  }) {
+    const form = new FormData();
+    form.append("audio", input.blob, input.filename);
+    form.append("lyrics", JSON.stringify(input.lyrics));
+    form.append("key_terms", JSON.stringify(input.keyTerms));
+    const submitted = await this.requestJob("/local-audio/align-lyrics", form);
+    const completed = await this.waitForJob(submitted.id);
+    return readAlignmentResult(completed);
   }
 
   async analyzePitch(input: {
@@ -87,6 +107,15 @@ export class LocalAudioClient {
     return (await response.json()) as LocalAudioJob;
   }
 
+  async deleteJob(jobId: string) {
+    const response = await this.fetcher(
+      `${this.origin}/local-audio/jobs/${encodeURIComponent(jobId)}`,
+      { method: "DELETE" },
+    );
+    if (response.status === 404) return;
+    if (!response.ok) throw await responseError(response, "本机音频任务删除失败");
+  }
+
   async waitForJob(
     jobId: string,
     onProgress?: (job: LocalAudioJob) => void,
@@ -121,6 +150,59 @@ export class LocalAudioClient {
     if (!response.ok) throw await responseError(response, "本机音频任务没有启动");
     return (await response.json()) as LocalAudioJob;
   }
+}
+
+function readAlignmentResult(job: LocalAudioJob) {
+  const result = job.result;
+  const rawCues = Array.isArray(result?.cues) ? result.cues : [];
+  const rawQuality = result?.quality;
+  if (!rawQuality || typeof rawQuality !== "object") {
+    throw new Error("真实歌词对齐没有返回质量报告。");
+  }
+  const qualityRecord = rawQuality as Record<string, unknown>;
+  const status = String(qualityRecord.status);
+  if (!["passed", "warning", "failed"].includes(status)) {
+    throw new Error("真实歌词对齐返回了未知状态。");
+  }
+  const cues = rawCues.map((item, index) => {
+    const cue = item as Record<string, unknown>;
+    return {
+      id: String(cue.id || `aligned-${index + 1}`),
+      text: String(cue.text || ""),
+      start: Number(cue.start),
+      end: Number(cue.end),
+      source: "aligned" as const,
+      observedText: String(cue.observed_text || ""),
+      matchRatio: Number(cue.match_ratio),
+      confidence: Number(cue.confidence),
+    } satisfies LyricCue;
+  });
+  const quality: LyricAlignmentQuality = {
+    status: status as LyricAlignmentQuality["status"],
+    overallMatch: Number(qualityRecord.overall_match),
+    textPrecision: Number.isFinite(Number(qualityRecord.text_precision))
+      ? Number(qualityRecord.text_precision)
+      : undefined,
+    lineCoverage: Number(qualityRecord.line_coverage),
+    keyTermMatch: Number(qualityRecord.key_term_match),
+    averageConfidence: Number(qualityRecord.average_confidence),
+    vocalCoverage: Number(qualityRecord.vocal_coverage),
+    unbiasedMatch: Number.isFinite(Number(qualityRecord.unbiased_match))
+      ? Number(qualityRecord.unbiased_match)
+      : undefined,
+    matchedKeyTerms: Array.isArray(qualityRecord.matched_key_terms)
+      ? qualityRecord.matched_key_terms.map(String)
+      : [],
+    warnings: Array.isArray(qualityRecord.warnings)
+      ? qualityRecord.warnings.map(String)
+      : [],
+  };
+  return {
+    jobId: job.id,
+    transcription: String(result?.transcription || ""),
+    cues,
+    quality,
+  };
 }
 
 function defaultLocalAudioOrigin() {

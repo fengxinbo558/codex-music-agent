@@ -17,7 +17,7 @@ export type StudioBottomTab = "lyrics" | "mixer" | "versions" | "tasks";
 
 export type GenerationMode = "full" | "region" | "extend" | "rearrange";
 
-export type GenerationDuration = 30 | 60 | 90;
+export type GenerationDuration = 30 | 60 | 90 | 120 | 180 | 240;
 
 export type VocalStyle = "female" | "male" | "instrumental";
 
@@ -33,6 +33,8 @@ export type LyricWritingStyle =
   | "dialogue"
   | "prose"
   | "hook";
+
+export type LyricAbstractionLevel = "direct" | "balanced" | "poetic";
 
 export type CreativityLevel = "stable" | "balanced" | "surprise";
 
@@ -61,7 +63,7 @@ export type GenerationPreferences = {
   lyricClarity: LyricClarity;
   lyricsMode: LyricsMode;
   creativity: CreativityLevel;
-  variantCount: 1 | 2;
+  variantCount: 1 | 2 | 4;
   toneProfile: ToneProfile;
 };
 
@@ -71,6 +73,30 @@ export type LyricCue = {
   start: number;
   end: number;
   source: "estimated" | "aligned";
+  observedText?: string;
+  matchRatio?: number;
+  confidence?: number;
+};
+
+export type LyricAlignmentQuality = {
+  status: "processing" | "passed" | "warning" | "failed";
+  overallMatch: number;
+  textPrecision?: number;
+  lineCoverage: number;
+  keyTermMatch: number;
+  averageConfidence: number;
+  vocalCoverage: number;
+  unbiasedMatch?: number;
+  matchedKeyTerms: string[];
+  warnings: string[];
+};
+
+export type LyricAlignmentAudit = {
+  status: "processing" | "passed" | "warning" | "failed";
+  transcription: string;
+  jobId?: string;
+  quality?: LyricAlignmentQuality;
+  error?: string;
 };
 
 export type WorkflowStepId =
@@ -249,6 +275,9 @@ export type ProjectVersion = {
   preferences?: GenerationPreferences;
   lyrics?: string[];
   lyricCues?: LyricCue[];
+  lyricLogicScore?: number;
+  lyricFactAnchors?: string[];
+  lyricAudit?: LyricAlignmentAudit;
   tracks?: MusicTrack[];
   seed?: string;
   reference?: GenerationReferenceSettings;
@@ -413,9 +442,51 @@ export type LyricDraftLine = {
   warnings: string[];
 };
 
+export type LyricStorySkeleton = {
+  speaker: string;
+  addressee: string;
+  coreThesis: string;
+  facts: string[];
+  turn: string;
+  conclusion: string;
+};
+
+export type LyricQualityDimensionId =
+  | "thesis"
+  | "relationship"
+  | "facts"
+  | "progression"
+  | "motif"
+  | "chorus"
+  | "singability"
+  | "cliche";
+
+export type LyricQualityDimension = {
+  id: LyricQualityDimensionId;
+  label: string;
+  score: number;
+  maxScore: number;
+  pass: boolean;
+  explanation: string;
+};
+
+export type LyricProfessionalReport = {
+  score: number;
+  canApprove: boolean;
+  dimensions: LyricQualityDimension[];
+  factAnchors: string[];
+  coveredFactAnchors: string[];
+  missingFactAnchors: string[];
+  warnings: string[];
+};
+
 export type LyricVocalDraft = {
   id: string;
   writingStyle: LyricWritingStyle;
+  abstractionLevel: LyricAbstractionLevel;
+  originalIdea: string;
+  skeleton: LyricStorySkeleton;
+  professionalReport: LyricProfessionalReport;
   lines: LyricDraftLine[];
   vocalCues: VocalPerformanceCue[];
   estimatedSeconds: number;
@@ -453,7 +524,11 @@ export type GeneratedAudio = {
 
 export type MusicEngineStatus = "checking" | "preparing" | "ready" | "offline";
 
-export type LocalAudioCapability = "stems" | "pitch_analysis" | "pitch_shift";
+export type LocalAudioCapability =
+  | "stems"
+  | "pitch_analysis"
+  | "pitch_shift"
+  | "lyric_alignment";
 
 export type LocalAudioJobStatus =
   | "queued"

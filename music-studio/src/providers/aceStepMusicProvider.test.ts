@@ -108,6 +108,9 @@ describe("getAceStepStatus", () => {
     expect(request.lm_negative_prompt).toContain("over-compressed dynamics");
     expect(request.prompt).toContain("precise Mandarin Chinese initials");
     expect(request.prompt).toContain("intimate female vocal");
+    expect(request.prompt).toContain("sing only the supplied Mandarin lyrics in exact order");
+    expect(request.prompt).not.toContain(`${brief.bpm} BPM`);
+    expect(request.prompt).not.toContain(brief.key);
     expect(request.lm_negative_prompt).toContain("mumbled or swallowed lyrics");
     expect(request).toMatchObject({
       vocal_language: "zh",

@@ -13,6 +13,7 @@ import type {
   MusicEngineStatus,
   MusicWorkflow,
   ProjectVersion,
+  LyricAbstractionLevel,
   LyricVocalDraft,
   LyricWritingStyle,
   VocalTechnique,
@@ -77,6 +78,7 @@ type AgentPanelProps = {
   onReturnToIdea: () => void;
   onChangeLyricLine: (lineId: string, text: string) => void;
   onSelectLyricWritingStyle: (style: LyricWritingStyle) => void;
+  onChangeLyricAbstraction: (level: LyricAbstractionLevel) => void;
   onRewriteLyrics: () => void;
   onUndoLyricRewrite: () => void;
   canUndoLyricRewrite: boolean;
@@ -146,6 +148,7 @@ export function AgentPanel({
   onReturnToIdea,
   onChangeLyricLine,
   onSelectLyricWritingStyle,
+  onChangeLyricAbstraction,
   onRewriteLyrics,
   onUndoLyricRewrite,
   canUndoLyricRewrite,
@@ -236,6 +239,7 @@ export function AgentPanel({
             })}
             onChangeLine={onChangeLyricLine}
             onSelectWritingStyle={onSelectLyricWritingStyle}
+            onChangeAbstraction={onChangeLyricAbstraction}
             onRewriteLyrics={onRewriteLyrics}
             onUndoRewrite={onUndoLyricRewrite}
             isRewriting={isBusy}
@@ -401,8 +405,8 @@ export function AgentPanel({
                     ? "参考这个风格生成"
                     : referenceSettings.mode === "cover"
                       ? "翻唱 / 重编这段音频"
-                      : preferences.variantCount === 2
-                        ? "生成 2 个版本"
+                      : preferences.variantCount > 1
+                        ? `生成 ${preferences.variantCount} 个版本`
                         : "生成一首歌"}
             <span aria-hidden="true">→</span>
           </button>

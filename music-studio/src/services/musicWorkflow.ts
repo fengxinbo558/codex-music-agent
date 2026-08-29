@@ -1,4 +1,5 @@
 import type {
+  LyricAlignmentAudit,
   LyricCue,
   MusicWorkflow,
   MusicWorkflowStep,
@@ -149,6 +150,8 @@ export function evaluateDeliveryGate(input: {
   hasVocals: boolean;
   lyrics: string[];
   lyricCues: LyricCue[];
+  lyricLogicPassed?: boolean;
+  lyricAudit?: LyricAlignmentAudit;
 }) {
   const checks = [
     { label: "新版本已建立", pass: Boolean(input.versionId) },
@@ -163,6 +166,24 @@ export function evaluateDeliveryGate(input: {
         !input.hasVocals ||
         (input.lyrics.some((line) => line.trim()) &&
           input.lyricCues.length > 0),
+    },
+    {
+      label: "歌词逻辑检查通过",
+      pass: !input.hasVocals || input.lyricLogicPassed === true,
+    },
+    {
+      label: "真实唱词与批准歌词一致",
+      pass:
+        !input.hasVocals ||
+        (input.lyricAudit?.status === "passed" &&
+          input.lyricCues.length > 0 &&
+          input.lyricCues.every((cue) => cue.source === "aligned")),
+    },
+    {
+      label: "中文吐字清晰度通过",
+      pass:
+        !input.hasVocals ||
+        (input.lyricAudit?.quality?.averageConfidence ?? 0) >= 0.55,
     },
   ];
   return { ready: checks.every((check) => check.pass), checks };

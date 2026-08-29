@@ -73,6 +73,7 @@ coverage/
 personal/
 local-models/
 music-studio/demo-output/
+music-studio/.verified-demo/
 
 # os
 .DS_Store

@@ -79,6 +79,9 @@ export function GenerationSettings({
               { value: 30, label: "30 秒" },
               { value: 60, label: "60 秒" },
               { value: 90, label: "90 秒" },
+              { value: 120, label: "2 分钟" },
+              { value: 180, label: "3 分钟" },
+              { value: 240, label: "4 分钟" },
             ]}
             disabled={disabled}
             onChange={(value) => update("duration", value)}
@@ -133,13 +136,14 @@ export function GenerationSettings({
             disabled={disabled}
             onChange={(value) => update("toneProfile", value)}
           />
-          <ChoiceGroup<1 | 2>
+          <ChoiceGroup<1 | 2 | 4>
             legend="生成数量"
             name="variant-count"
             value={preferences.variantCount}
             options={[
               { value: 1, label: "1 个版本" },
               { value: 2, label: "2 个版本" },
+              { value: 4, label: "4 个严选版本" },
             ]}
             disabled={disabled}
             onChange={(value) => update("variantCount", value)}

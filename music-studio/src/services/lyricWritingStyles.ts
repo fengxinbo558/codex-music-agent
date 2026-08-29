@@ -16,8 +16,8 @@ export type LyricWritingStyleGuide = {
 const BASE_GUIDES: Array<Omit<LyricWritingStyleGuide, "recommended" | "reason" | "score">> = [
   {
     id: "conversational",
-    label: "口语叙事",
-    tagline: "像真的在对一个人说话",
+    label: "把故事唱清楚",
+    tagline: "人物、动作、变化都听得懂",
     description: "用日常词语讲清人物、动作和变化，最容易听懂。",
     example: "我绕了很远的路 / 还是开回你住过的街",
     suitableFor: "第一次写词、故事歌、流行与民谣",
@@ -25,8 +25,8 @@ const BASE_GUIDES: Array<Omit<LyricWritingStyleGuide, "recommended" | "reason" |
   },
   {
     id: "poetic",
-    label: "现代诗意象",
-    tagline: "少解释，多留画面和余味",
+    label: "用一个意象贯穿",
+    tagline: "少解释，但只围绕一个核心画面",
     description: "用光、雨、城市、季节等意象承接情绪，画面感更强。",
     example: "路灯把雨折成两半 / 一半落在后视镜",
     suitableFor: "独立流行、氛围音乐、含蓄和内省情绪",
@@ -34,8 +34,8 @@ const BASE_GUIDES: Array<Omit<LyricWritingStyleGuide, "recommended" | "reason" |
   },
   {
     id: "dialogue",
-    label: "对话体",
-    tagline: "把聊天记录变成能唱的对白",
+    label: "像当面说给他听",
+    tagline: "把对话和关系冲突写进歌里",
     description: "用“你说 / 我说 / 没发出的回复”推进关系，代入感直接。",
     example: "你说最近还好吗 / 我打了又删掉一句回答",
     suitableFor: "聊天记录、短视频剧情、关系冲突",
@@ -43,8 +43,8 @@ const BASE_GUIDES: Array<Omit<LyricWritingStyleGuide, "recommended" | "reason" |
   },
   {
     id: "prose",
-    label: "散文感",
-    tagline: "像一封有旋律的信",
+    label: "把细节写成一封信",
+    tagline: "保留时间、地点、动作和回忆",
     description: "保留较完整的叙述和细节，语气自然，适合慢慢铺陈。",
     example: "那天你走得很慢，像在等我把最后一句话说完",
     suitableFor: "回忆、家人、成长、长线叙事",
@@ -52,8 +52,8 @@ const BASE_GUIDES: Array<Omit<LyricWritingStyleGuide, "recommended" | "reason" |
   },
   {
     id: "hook",
-    label: "短句钩子",
-    tagline: "先写一句让人立刻记住的话",
+    label: "先做一句能记住的副歌",
+    tagline: "观点变成力量，再用短句打出去",
     description: "减少解释，用短句、重复和重音制造强副歌。",
     example: "我不认输 / 我不替沉默认错",
     suitableFor: "摇滚、电子、怒音、副歌爆发与短视频片段",
